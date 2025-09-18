@@ -25,6 +25,10 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 install! 'cocoapods', :deterministic_uuids => false
 
+# Enable modular headers so Swift pods depending on non-modular Obj-C pods
+# (e.g., GoogleUtilities, FirebaseCore*) can be integrated as static libraries.
+use_modular_headers!
+
 flutter_ios_podfile_setup
 
 target 'Runner' do
