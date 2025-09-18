@@ -1,0 +1,49 @@
+2025-08-16 04:34:05 | Start run
+2025-08-16 04:34:37 | Got 380 fixtures. UPLOADING to Firebase.
+2025-08-16 04:34:37 | FATAL: System.AggregateException: One or more errors occurred. (Response status code does not indicate success: 400 (Bad Request).)
+ ---> System.Net.Http.HttpRequestException: Response status code does not indicate success: 400 (Bad Request).
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.FirebaseService.DeleteAllFixtures() in C:\Users\void7\my_app - Copy\PremFixturesScraper\FirebaseService.vb:line 17
+   --- End of inner exception stack trace ---
+   at System.Threading.Tasks.Task.ThrowIfExceptional(Boolean includeTaskCanceledExceptions)
+   at System.Threading.Tasks.Task.Wait(Int32 millisecondsTimeout, CancellationToken cancellationToken)
+   at System.Threading.Tasks.Task.Wait()
+   at PremFixturesScraper.Program.Main() in C:\Users\void7\my_app - Copy\PremFixturesScraper\Program.vb:line 40
+2025-08-16 04:35:55 | Start run
+2025-08-16 04:36:25 | Got 380 fixtures. UPLOADING to Firebase.
+2025-08-16 04:36:27 | FATAL: System.AggregateException: One or more errors occurred. (Response status code does not indicate success: 400 (Bad Request).)
+ ---> System.Net.Http.HttpRequestException: Response status code does not indicate success: 400 (Bad Request).
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.FirebaseService.DeleteAllFixtures() in C:\Users\void7\my_app - Copy\PremFixturesScraper\FirebaseService.vb:line 23
+   --- End of inner exception stack trace ---
+   at System.Threading.Tasks.Task.ThrowIfExceptional(Boolean includeTaskCanceledExceptions)
+   at System.Threading.Tasks.Task.Wait(Int32 millisecondsTimeout, CancellationToken cancellationToken)
+   at System.Threading.Tasks.Task.Wait()
+   at PremFixturesScraper.Program.Main() in C:\Users\void7\my_app - Copy\PremFixturesScraper\Program.vb:line 40
+2025-08-16 04:36:51 | Start run
+2025-08-16 04:37:47 | Got 380 fixtures. UPLOADING to Firebase.
+2025-08-16 04:38:00 | FATAL: System.AggregateException: One or more errors occurred. (Response status code does not indicate success: 400 (Bad Request).)
+ ---> System.Net.Http.HttpRequestException: Response status code does not indicate success: 400 (Bad Request).
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.FirebaseService.UploadFixtures(List`1 fixtures) in C:\Users\void7\my_app - Copy\PremFixturesScraper\FirebaseService.vb:line 45
+   --- End of inner exception stack trace ---
+   at System.Threading.Tasks.Task.ThrowIfExceptional(Boolean includeTaskCanceledExceptions)
+   at System.Threading.Tasks.Task.Wait(Int32 millisecondsTimeout, CancellationToken cancellationToken)
+   at System.Threading.Tasks.Task.Wait()
+   at PremFixturesScraper.Program.Main() in C:\Users\void7\my_app - Copy\PremFixturesScraper\Program.vb:line 41
+2025-08-16 04:38:43 | Start run
+2025-08-16 04:39:25 | Got 380 fixtures. UPLOADING to Firebase.
+2025-08-16 04:40:25 | Firebase upload complete.
+2025-08-16 04:40:25 | Done
+2025-08-16 04:52:33 | Start run
+2025-08-16 04:52:40 | Got 380 fixtures. UPLOADING to Firebase.
+2025-08-16 04:53:16 | Firebase upload complete.
+2025-08-16 04:53:16 | Done
+2025-08-16 05:03:48 | Start run
+2025-08-16 05:03:55 | Got 380 fixtures. UPLOADING to Firebase.
+2025-08-16 05:04:30 | Firebase upload complete.
+2025-08-16 05:04:30 | Done
+2025-08-16 05:13:20 | Start run
+2025-08-16 05:13:45 | Got 380 fixtures. UPLOADING to Firebase.
+2025-08-16 05:16:14 | Firebase upload complete.
+2025-08-16 05:16:14 | Done

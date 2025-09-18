@@ -1,0 +1,123 @@
+name: Build iOS (Unsigned)
+
+on:
+  workflow_dispatch:
+    inputs:
+      flutter_channel:
+        description: Flutter channel (stable/beta/master)
+        required: false
+        default: stable
+      flutter_version:
+        description: Specific Flutter version (optional, e.g. 3.24.0)
+        required: false
+        default: ''
+      xcode_version:
+        description: Xcode version on macOS runner (e.g. '15.4')
+        required: false
+        default: ''
+      flavor:
+        description: Flutter flavor (optional)
+        required: false
+        default: ''
+      build_name:
+        description: App version name (e.g. 1.0.0)
+        required: false
+        default: ''
+      build_number:
+        description: App build number (e.g. 1)
+        required: false
+        default: ''
+  push:
+    branches: [ main ]
+    paths:
+      - 'lib/**'
+      - 'ios/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/build-ios-unsigned.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios-unsigned:
+    name: Build iOS IPA (no codesign)
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode (optional)
+        if: ${{ inputs.xcode_version != '' }}
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ inputs.xcode_version }}
+
+      - name: Set up Java (for Gradle/Android tooling used by Flutter)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ inputs.flutter_channel || 'stable' }}
+          flutter-version: ${{ inputs.flutter_version }}
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cocoapods
+            ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Install CocoaPods dependencies
+        env:
+          COCOAPODS_DISABLE_STATS: 'true'
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Build unsigned IPA
+        env:
+          CI: true
+        run: |
+          # Build the iOS IPA without code signing
+          BUILD_ARGS="--no-codesign"
+          if [ -n "${{ inputs.flavor }}" ]; then BUILD_ARGS="$BUILD_ARGS --flavor ${{ inputs.flavor }}"; fi
+          if [ -n "${{ inputs.build_name }}" ]; then BUILD_ARGS="$BUILD_ARGS --build-name ${{ inputs.build_name }}"; fi
+          if [ -n "${{ inputs.build_number }}" ]; then BUILD_ARGS="$BUILD_ARGS --build-number ${{ inputs.build_number }}"; fi
+          echo "flutter build ipa $BUILD_ARGS"
+          flutter build ipa $BUILD_ARGS
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 7
+
+      - name: Upload Xcode archive (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-xcarchive
+          path: build/ios/archive/*.xcarchive
+          retention-days: 7

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "507455941575",
+    "project_id": "var6-51392",
+    "storage_bucket": "var6-51392.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:507455941575:android:bc7e4d925c9c497cf3c7e2",
+        "android_client_info": {
+          "package_name": "com.var6betting.sportsapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

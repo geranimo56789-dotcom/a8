@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'admin@gmail.com';
+    }
+    function scoreFieldsOnly() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['homeScore', 'awayScore', 'status', 'updatedAt']);
+    }
+    match /users/{userId}/predictions/{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Public matches selected by admin for betting
+    match /matches/{matchId} {
+      allow read: if isSignedIn();
+      // Only admin can create or delete matches
+      allow create, delete: if isAdmin();
+      // Admin can update anything; non-admins may only update score-related fields
+      allow update: if isAdmin() || (isSignedIn() && scoreFieldsOnly());
+    }
+
+    // Scraped fixtures storage
+    match /fixtures/{fixtureId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Admin meta like last scrape date
+    match /admin/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Distributed winners job coordination (client-side lease/status)
+    match /winners_jobs/{date} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Winners archive (per-day winners list for admin export)
+    match /winners_archive/{date} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}

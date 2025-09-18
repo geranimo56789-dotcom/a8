@@ -1,0 +1,29 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter: Web (Chrome, 127.0.0.1:7357)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["-d", "chrome", "--web-hostname", "127.0.0.1", "--web-port", "7357"]
+    },
+    {
+      "name": "Flutter: Web (Edge, 127.0.0.1:7358)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["-d", "edge", "--web-hostname", "127.0.0.1", "--web-port", "7358"]
+    },
+    {
+      "name": "Flutter: Windows Desktop",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["-d", "windows"]
+    }
+  ]
+}

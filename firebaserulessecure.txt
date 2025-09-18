@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow public read access to all documents
+    match /{document=**} {
+      allow read: if true;
+    }
+
+    // Only allow authenticated users to write to the fixtures collection
+    match /fixtures/{fixtureId} {
+      allow write: if request.auth != null;
+    }
+
+    // Only allow admin to write to the selectedMatches collection
+    match /selectedMatches/{documentId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        request.auth.token.email == 'admin@gmail.com';
+    }
+
+    // Admin-only access to admin collection
+    match /admin/{document=**} {
+      allow read, write: if request.auth != null && 
+        request.auth.token.email == 'admin@gmail.com';
+    }
+  }
+}

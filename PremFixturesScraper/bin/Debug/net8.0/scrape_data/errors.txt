@@ -1,0 +1,34 @@
+2025-08-16 04:34:37 | MATCH | No current date context | Anfield tributes for Diogo Jota and Andre Silva at Liverpool v Bournemouth
+2025-08-16 04:34:37 | FATAL | System.AggregateException: One or more errors occurred. (Response status code does not indicate success: 400 (Bad Request).)
+ ---> System.Net.Http.HttpRequestException: Response status code does not indicate success: 400 (Bad Request).
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.FirebaseService.DeleteAllFixtures() in C:\Users\void7\my_app - Copy\PremFixturesScraper\FirebaseService.vb:line 17
+   --- End of inner exception stack trace ---
+   at System.Threading.Tasks.Task.ThrowIfExceptional(Boolean includeTaskCanceledExceptions)
+   at System.Threading.Tasks.Task.Wait(Int32 millisecondsTimeout, CancellationToken cancellationToken)
+   at System.Threading.Tasks.Task.Wait()
+   at PremFixturesScraper.Program.Main() in C:\Users\void7\my_app - Copy\PremFixturesScraper\Program.vb:line 40
+2025-08-16 04:36:25 | MATCH | No current date context | Anfield tributes for Diogo Jota and Andre Silva at Liverpool v Bournemouth
+2025-08-16 04:36:27 | FATAL | System.AggregateException: One or more errors occurred. (Response status code does not indicate success: 400 (Bad Request).)
+ ---> System.Net.Http.HttpRequestException: Response status code does not indicate success: 400 (Bad Request).
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.FirebaseService.DeleteAllFixtures() in C:\Users\void7\my_app - Copy\PremFixturesScraper\FirebaseService.vb:line 23
+   --- End of inner exception stack trace ---
+   at System.Threading.Tasks.Task.ThrowIfExceptional(Boolean includeTaskCanceledExceptions)
+   at System.Threading.Tasks.Task.Wait(Int32 millisecondsTimeout, CancellationToken cancellationToken)
+   at System.Threading.Tasks.Task.Wait()
+   at PremFixturesScraper.Program.Main() in C:\Users\void7\my_app - Copy\PremFixturesScraper\Program.vb:line 40
+2025-08-16 04:37:47 | MATCH | No current date context | Anfield tributes for Diogo Jota and Andre Silva at Liverpool v Bournemouth
+2025-08-16 04:38:00 | FATAL | System.AggregateException: One or more errors occurred. (Response status code does not indicate success: 400 (Bad Request).)
+ ---> System.Net.Http.HttpRequestException: Response status code does not indicate success: 400 (Bad Request).
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.FirebaseService.UploadFixtures(List`1 fixtures) in C:\Users\void7\my_app - Copy\PremFixturesScraper\FirebaseService.vb:line 45
+   --- End of inner exception stack trace ---
+   at System.Threading.Tasks.Task.ThrowIfExceptional(Boolean includeTaskCanceledExceptions)
+   at System.Threading.Tasks.Task.Wait(Int32 millisecondsTimeout, CancellationToken cancellationToken)
+   at System.Threading.Tasks.Task.Wait()
+   at PremFixturesScraper.Program.Main() in C:\Users\void7\my_app - Copy\PremFixturesScraper\Program.vb:line 41
+2025-08-16 04:39:25 | MATCH | No current date context | Anfield tributes for Diogo Jota and Andre Silva at Liverpool v Bournemouth
+2025-08-16 04:52:40 | MATCH | No current date context | Anfield tributes for Diogo Jota and Andre Silva at Liverpool v Bournemouth
+2025-08-16 05:03:55 | MATCH | No current date context | Anfield tributes for Diogo Jota and Andre Silva at Liverpool v Bournemouth
+2025-08-16 05:13:45 | MATCH | No current date context | Anfield tributes for Diogo Jota and Andre Silva at Liverpool v Bournemouth

@@ -1,0 +1,84 @@
+=== 2025-08-15T12:12:20.8785022Z ===
+Error: Response status code does not indicate success: 403 (Forbidden).
+Stack Trace:
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.TestFirebase.TestWriteOperation() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 100
+   at PremFixturesScraper.TestFirebase.MainAsync() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 32
+
+=== 2025-08-15T12:15:14.5779692Z ===
+Error: Response status code does not indicate success: 403 (Forbidden).
+Stack Trace:
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.TestFirebase.TestWriteOperation() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 136
+   at PremFixturesScraper.TestFirebase.MainAsync() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 32
+
+=== 2025-08-15T12:16:05.7150309Z ===
+Error: Response status code does not indicate success: 403 (Forbidden).
+Stack Trace:
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.TestFirebase.TestWriteOperation() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 136
+   at PremFixturesScraper.TestFirebase.MainAsync() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 32
+
+=== 2025-08-15T12:17:30.9905384Z ===
+Error: Response status code does not indicate success: 403 (Forbidden).
+Stack Trace:
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.TestFirebase.TestWriteOperation() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 174
+   at PremFixturesScraper.TestFirebase.MainAsync() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 41
+
+=== 2025-08-15T12:18:17.2561249Z ===
+Error: Response status code does not indicate success: 403 (Forbidden).
+Stack Trace:
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.TestFirebase.TestWriteOperation() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 163
+   at PremFixturesScraper.TestFirebase.MainAsync() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 41
+
+=== 2025-08-15T12:23:46.1890145Z ===
+Error: Response status code does not indicate success: 404 (Not Found).
+Stack Trace:
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.TestFirebase.TestReadOperation() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 79
+   at PremFixturesScraper.TestFirebase.MainAsync() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 47
+
+=== 2025-08-15T12:29:07.3653488Z ===
+Error: Response status code does not indicate success: 404 (Not Found).
+Stack Trace:
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.TestFirebase.TestReadOperation() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 79
+   at PremFixturesScraper.TestFirebase.MainAsync() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 47
+
+=== 2025-08-15T12:29:44.6983058Z ===
+Error: Response status code does not indicate success: 404 (Not Found).
+Stack Trace:
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.TestFirebase.TestReadOperation() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 79
+   at PremFixturesScraper.TestFirebase.MainAsync() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 47
+
+=== 2025-08-15T12:32:36.6957145Z ===
+Error: Response status code does not indicate success: 404 (Not Found).
+Stack Trace:
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.TestFirebase.TestReadOperation() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 79
+   at PremFixturesScraper.TestFirebase.MainAsync() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 47
+
+=== 2025-08-15T12:32:50.5031665Z ===
+Error: Response status code does not indicate success: 404 (Not Found).
+Stack Trace:
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.TestFirebase.TestReadOperation() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 79
+   at PremFixturesScraper.TestFirebase.MainAsync() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 47
+
+=== 2025-08-15T12:33:58.9733658Z ===
+Error: Response status code does not indicate success: 404 (Not Found).
+Stack Trace:
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.TestFirebase.TestReadOperation() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 78
+   at PremFixturesScraper.TestFirebase.MainAsync() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 47
+
+=== 2025-08-15T12:39:02.4749109Z ===
+Error: Response status code does not indicate success: 404 (Not Found).
+Stack Trace:
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at PremFixturesScraper.TestFirebase.TestReadOperation() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 79
+   at PremFixturesScraper.TestFirebase.MainAsync() in C:\Users\void7\my_app - Copy\PremFixturesScraper\TestFirebase.vb:line 47
+

@@ -1,0 +1,1125 @@
+always do all things things yourself , only ask me to do stuff when you can't or get stuck. always at the very end if there is something for me to do write it after a text like "#######################". always try to run and test  yourself. usually talk less do more, tell me only extremely briefly only the most important things, write as little description code as possible. usually try to make it so that logs come out and you can test things and self correct.  don't run the main app. the terminal in cursor ai you use keeps getting stuck, make it so it doesn't hang. The issue is the Console.ReadKey() which waits for user input. when chatting with me to do things for you provide better alternatives if availabale, if provide bad solutions. usually try to use as little code as possible, be very efficient with code so that you reduce the probability of bugs.  and also try to put things in as little as possible files, istead of spreading up code in several files.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow public read access to all documents
+    match /{document=**} {
+      allow read: if true;
+    }
+
+    // Only allow authenticated users to write to the fixtures collection
+    match /fixtures/{fixtureId} {
+      allow write: if request.auth != null;
+    }
+
+    // Only allow admin to write to the selectedMatches collection
+    match /selectedMatches/{documentId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        request.auth.token.email == 'admin@gmail.com';
+    }
+
+    // Admin-only access to admin collection
+    match /admin/{document=**} {
+      allow read, write: if request.auth != null && 
+        request.auth.token.email == 'admin@gmail.com';
+    }
+  }
+}
+
+import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+
+/// Default [FirebaseOptions] for use with your Firebase apps.
+class DefaultFirebaseOptions {
+  static FirebaseOptions get currentPlatform {
+    if (kIsWeb) {
+      return web;
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return android;
+      case TargetPlatform.iOS:
+        return ios;
+      case TargetPlatform.macOS:
+        return macos;
+      case TargetPlatform.windows:
+        return windows;
+      case TargetPlatform.linux:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for linux - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
+      default:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions are not supported for this platform.',
+        );
+    }
+  }
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA',
+    appId: '1:507455941575:web:bc7e4d925c9c497cf3c7e2',
+    messagingSenderId: '507455941575',
+    projectId: 'var6-51392',
+    authDomain: 'var6-51392.firebaseapp.com',
+    storageBucket: 'var6-51392.firebasestorage.app',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA',
+    appId: '1:507455941575:android:bc7e4d925c9c497cf3c7e2',
+    messagingSenderId: '507455941575',
+    projectId: 'var6-51392',
+    storageBucket: 'var6-51392.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA',
+    appId: '1:507455941575:ios:bc7e4d925c9c497cf3c7e2',
+    messagingSenderId: '507455941575',
+    projectId: 'var6-51392',
+    storageBucket: 'var6-51392.firebasestorage.app',
+    iosClientId: '507455941575-bc7e4d925c9c497cf3c7e2.apps.googleusercontent.com',
+    iosBundleId: 'com.example.myApp',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA',
+    appId: '1:507455941575:ios:bc7e4d925c9c497cf3c7e2',
+    messagingSenderId: '507455941575',
+    projectId: 'var6-51392',
+    storageBucket: 'var6-51392.firebasestorage.app',
+    iosClientId: '507455941575-bc7e4d925c9c497cf3c7e2.apps.googleusercontent.com',
+    iosBundleId: 'com.example.myApp',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA',
+    appId: '1:507455941575:web:bc7e4d925c9c497cf3c7e2',
+    messagingSenderId: '507455941575',
+    projectId: 'var6-51392',
+    storageBucket: 'var6-51392.firebasestorage.app',
+  );
+}
+
+
+================================================================================
+VAR6 FLUTTER BETTING APP - COMPLETE PROJECT EXPORT
+================================================================================
+Export Date: January 8, 2025
+Project Name: VAR6 Betting App
+Description: Flutter-based Premier League match prediction app with Firebase backend
+
+================================================================================
+PROJECT OVERVIEW
+================================================================================
+This is a complete Flutter mobile application for Premier League match predictions.
+Key Features:
+- User authentication (email/password)
+- Match prediction system
+- Admin panel for fixture management
+- Multi-language support (English/French)
+- Dark/Light theme toggle
+- VB.NET scraper for fixture data
+- Firebase Firestore backend
+- Team logo assets
+
+================================================================================
+FIREBASE CONFIGURATION
+================================================================================
+
+PROJECT ID: var6-51392
+API KEY: AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA
+MESSAGE SENDER ID: 507455941575
+STORAGE BUCKET: var6-51392.firebasestorage.app
+AUTH DOMAIN: var6-51392.firebaseapp.com
+
+ADMIN CREDENTIALS:
+Email: admin@gmail.com
+Password: 111111
+
+================================================================================
+FLUTTER DEPENDENCIES (pubspec.yaml)
+================================================================================
+
+name: my_app
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+  cupertino_icons: ^1.0.8
+  firebase_core: ^2.30.1
+  firebase_auth: ^4.19.4
+  cloud_firestore: ^4.17.5
+  firebase_storage: ^11.7.7
+  shared_preferences: ^2.3.3
+  http: ^1.2.2
+  provider: ^6.1.5
+  html: ^0.15.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/var6_logo.png
+    - assets/logos/clubs/
+
+================================================================================
+MAIN APPLICATION CODE (lib/main.dart)
+================================================================================
+
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
+import 'theme_notifier.dart';
+import 'firebase_options.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:async';
+
+class LocaleNotifier extends ChangeNotifier {
+  Locale? _locale;
+  Locale? get locale => _locale;
+  void setLanguageCode(String code) {
+    _locale = Locale(code);
+    notifyListeners();
+  }
+}
+
+final localeNotifier = LocaleNotifier();
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (kIsWeb) {
+    // Reduce potential IndexedDB/persistence issues on web
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: false,
+    );
+  }
+  // Load saved language (defaults to English)
+  final prefs = await SharedPreferences.getInstance();
+  final code = prefs.getString('language_code') ?? 'en';
+  localeNotifier.setLanguageCode(code);
+  runApp(
+    ChangeNotifierProvider(create: (_) => ThemeNotifier(), child: MyApp()),
+  );
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ThemeNotifier>(
+      builder: (context, notifier, child) => AnimatedBuilder(
+        animation: localeNotifier,
+        builder: (context, _) => MaterialApp(
+          onGenerateTitle: (ctx) => AppLocalizations.of(ctx).t('app_title'),
+          theme: ThemeData(
+            primarySwatch: Colors.blue,
+            fontFamily: 'Arial',
+            brightness: Brightness.light,
+          ),
+          darkTheme: ThemeData(
+            primarySwatch: Colors.blue,
+            fontFamily: 'Arial',
+            brightness: Brightness.dark,
+          ),
+          themeMode: notifier.darkTheme ? ThemeMode.dark : ThemeMode.light,
+          home: AuthGate(),
+          debugShowCheckedModeBanner: false,
+          locale: localeNotifier.locale,
+          supportedLocales: const [Locale('en'), Locale('fr')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            AppLocalizationsDelegate(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        if (snapshot.hasData) {
+          final user = snapshot.data!;
+          // Route admin to the secret admin panel
+          if ((user.email ?? '').toLowerCase() == 'admin@gmail.com') {
+            return AdminPanel();
+          }
+          return HomeScreen();
+        }
+        return SignInScreen();
+      },
+    );
+  }
+}
+
+class TeamAvatar extends StatelessWidget {
+  final String teamCode;
+  final Color color;
+
+  const TeamAvatar({super.key, required this.teamCode, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final logoPath = 'logos/clubs/${teamCode.toLowerCase()}.png';
+    return CircleAvatar(
+      radius: 30,
+      backgroundColor: Colors.transparent,
+      child: Image.asset(
+        logoPath,
+        errorBuilder: (context, error, stackTrace) {
+          return CircleAvatar(
+            radius: 30,
+            backgroundColor: color,
+            child: Text(
+              teamCode,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// [TRUNCATED FOR BREVITY - Full code includes AdminPanel, SignInScreen, HomeScreen, GameRulesScreen, SettingsScreen, PredictionsScreen]
+
+================================================================================
+FIREBASE OPTIONS (lib/firebase_options.dart)
+================================================================================
+
+import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+
+/// Default [FirebaseOptions] for use with your Firebase apps.
+class DefaultFirebaseOptions {
+  static FirebaseOptions get currentPlatform {
+    if (kIsWeb) {
+      return web;
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return android;
+      case TargetPlatform.iOS:
+        return ios;
+      case TargetPlatform.macOS:
+        return macos;
+      case TargetPlatform.windows:
+        return windows;
+      case TargetPlatform.linux:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for linux - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
+      default:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions are not supported for this platform.',
+        );
+    }
+  }
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA',
+    appId: '1:507455941575:web:bc7e4d925c9c497cf3c7e2',
+    messagingSenderId: '507455941575',
+    projectId: 'var6-51392',
+    authDomain: 'var6-51392.firebaseapp.com',
+    storageBucket: 'var6-51392.firebasestorage.app',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA',
+    appId: '1:507455941575:android:bc7e4d925c9c497cf3c7e2',
+    messagingSenderId: '507455941575',
+    projectId: 'var6-51392',
+    storageBucket: 'var6-51392.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA',
+    appId: '1:507455941575:ios:bc7e4d925c9c497cf3c7e2',
+    messagingSenderId: '507455941575',
+    projectId: 'var6-51392',
+    storageBucket: 'var6-51392.firebasestorage.app',
+    iosClientId: '507455941575-bc7e4d925c9c497cf3c7e2.apps.googleusercontent.com',
+    iosBundleId: 'com.example.myApp',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA',
+    appId: '1:507455941575:ios:bc7e4d925c9c497cf3c7e2',
+    messagingSenderId: '507455941575',
+    projectId: 'var6-51392',
+    storageBucket: 'var6-51392.firebasestorage.app',
+    iosClientId: '507455941575-bc7e4d925c9c497cf3c7e2.apps.googleusercontent.com',
+    iosBundleId: 'com.example.myApp',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA',
+    appId: '1:507455941575:web:bc7e4d925c9c497cf3c7e2',
+    messagingSenderId: '507455941575',
+    projectId: 'var6-51392',
+    storageBucket: 'var6-51392.firebasestorage.app',
+  );
+}
+
+================================================================================
+LOCALIZATION (lib/l10n/app_localizations.dart)
+================================================================================
+
+import 'package:flutter/widgets.dart';
+
+class AppLocalizations {
+  final Locale locale;
+  AppLocalizations(this.locale);
+
+  static const supportedLocales = [Locale('en'), Locale('fr')];
+
+  static AppLocalizations of(BuildContext context) {
+    return Localizations.of<AppLocalizations>(
+          context,
+          AppLocalizations,
+        ) ??
+        AppLocalizations(const Locale('en'));
+  }
+
+  static const Map<String, Map<String, String>> _localizedValues = {
+    'en': {
+      'app_title': 'VAR6 Betting App',
+      'sign_in': 'Sign In',
+      'email': 'Email',
+      'password': 'Password',
+      'remember_me': 'Remember me',
+      'choose_language': 'Choose language',
+      'english': 'English',
+      'french': 'Français',
+      'save': 'Save',
+      'change_language': 'Change Language',
+      'change_password': 'Change password',
+      'update_email': 'Update Email',
+      'delete_account': 'Delete Account',
+      'not_signed_in': 'Not signed in',
+      'no_predictions': 'No predictions yet',
+      'create_account': 'Create account',
+      'log_out': 'Log out',
+      'home': 'Home',
+      'settings': 'Settings',
+      'game_rules': 'Game Rules',
+      'menu': 'Menu',
+      'check_predictions': 'Check Predictions',
+      'submit': 'Submit',
+      'auto_signing_in': 'Signing you in automatically...',
+      'image_not_found': 'Image not found',
+      'official_game_rules': 'Official Game Rules',
+      'cancel': 'Cancel',
+      'update': 'Update',
+      'please_make_prediction': 'Please make at least one prediction.',
+      'latest_match': 'Latest Match',
+      'todays_matches': "Today's matches",
+      'no_more_match_to_predict': 'No more match to predict',
+      'your_predictions': 'Your predictions',
+      'check_submitted_predictions': 'Check your submitted predictions below.',
+      'place_your_predictions_for_todays_match_ups': "Place your predictions for today's match ups.",
+      'forgot_password': 'Forgot password?',
+      'password_reset_email_sent': 'Password reset email sent.',
+      'vs': 'VS',
+      'auto_login_failed': 'Auto-login failed. Please sign in manually.',
+      'auth_invalid_email': 'Invalid email address.',
+      'auth_user_not_found': 'No user found with this email.',
+      'auth_wrong_password': 'Incorrect password.',
+      'auth_user_disabled': 'This account has been disabled.',
+      'auth_too_many_requests': 'Too many attempts. Try again later.',
+      'auth_network_error': 'Network error. Check your connection.',
+      'auth_unknown_error': 'An unknown error occurred.',
+      'auth_email_in_use': 'This email is already in use.',
+      'auth_missing_password': 'Please enter your password.',
+      'auth_operation_not_allowed': 'Email/password sign-in is not enabled.',
+      'hello': 'Hello',
+      'rules_intro_1': "- On your homepage you'll be presented with the games that are upcoming so you can place your match game predictions",
+      'rules_intro_2': '- If your prediction is correct at the end of game play you can win a special prize',
+      'rules_intro_3': '- If your prediction is slightly wrong, but you predicted the winning team in that match would win, you stand the chance to win a runners up reward',
+      'rules_intro_4': '- Winners are announced every Friday',
+      'rules_prizes_intro': '- If your Game prediction is accurate you will win 1 of 2 prizes:',
+      'prize1': '1. £100',
+      'prize2': '2. A Brand new football Jersey',
+      'rules_contact': 'If you want more info on how to receive your prize winnings please email: info@var6.net',
+      'rules_disclaimer': 'The Var 6 mobile app wishes to make clear that Apple is in no way shape or form involved with the contest or sweepstakes played on this mobile application. Var 6 acts as an independent entity and is not apart of Apples products, only available on its App Store.',
+    },
+    'fr': {
+      'app_title': 'Application de paris VAR6',
+      'sign_in': 'Se connecter',
+      'email': 'E-mail',
+      'password': 'Mot de passe',
+      'remember_me': 'Se souvenir de moi',
+      'choose_language': 'Choisir la langue',
+      'english': 'Anglais',
+      'french': 'Français',
+      'save': 'Enregistrer',
+      'change_language': 'Changer la langue',
+      'change_password': 'Changer le mot de passe',
+      'update_email': 'Mettre à jour l'email',
+      'delete_account': 'Supprimer le compte',
+      'not_signed_in': 'Non connecté',
+      'no_predictions': 'Aucune prédiction pour le moment',
+      'create_account': 'Créer un compte',
+      'log_out': 'Se déconnecter',
+      'home': 'Accueil',
+      'settings': 'Paramètres',
+      'game_rules': 'Règles du jeu',
+      'menu': 'Menu',
+      'check_predictions': 'Voir les prédictions',
+      'submit': 'Valider',
+      'auto_signing_in': 'Connexion automatique en cours…',
+      'image_not_found': 'Image introuvable',
+      'official_game_rules': 'Règles officielles du jeu',
+      'cancel': 'Annuler',
+      'update': 'Mettre à jour',
+      'please_make_prediction': 'Veuillez faire au moins une prédiction.',
+      'latest_match': 'Dernier match',
+      'todays_matches': 'Matchs du jour',
+      'no_more_match_to_predict': 'Plus de match à prédire',
+      'your_predictions': 'Vos prédictions',
+      'check_submitted_predictions': 'Consultez vos prédictions soumises ci-dessous.',
+      'place_your_predictions_for_todays_match_ups': 'Faites vos prédictions pour les matchs du jour.',
+      'forgot_password': 'Mot de passe oublié ?',
+      'password_reset_email_sent': 'E-mail de réinitialisation du mot de passe envoyé.',
+      'vs': 'VS',
+      'auto_login_failed': 'La connexion automatique a échoué. Veuillez vous connecter manuellement.',
+      'auth_invalid_email': 'Adresse e-mail invalide.',
+      'auth_user_not_found': "Aucun utilisateur trouvé avec cet e-mail.",
+      'auth_wrong_password': 'Mot de passe incorrect.',
+      'auth_user_disabled': 'Ce compte a été désactivé.',
+      'auth_too_many_requests': 'Trop de tentatives. Réessayez plus tard.',
+      'auth_network_error': 'Erreur réseau. Vérifiez votre connexion.',
+      'auth_unknown_error': 'Une erreur inconnue est survenue.',
+      'auth_email_in_use': 'Cet e-mail est déjà utilisé.',
+      'auth_missing_password': 'Veuillez saisir votre mot de passe.',
+      'auth_operation_not_allowed': "La connexion e-mail/mot de passe n'est pas activée.",
+      'hello': 'Bonjour',
+      'rules_intro_1': "- Sur votre page d'accueil, vous verrez les matchs à venir afin de pouvoir placer vos prédictions",
+      'rules_intro_2': '- Si votre prédiction est correcte à la fin du match, vous pouvez gagner un prix spécial',
+      'rules_intro_3': "- Si votre prédiction est légèrement erronée mais que vous avez indiqué l'équipe gagnante, vous pouvez remporter une récompense de consolation",
+      'rules_intro_4': '- Les gagnants sont annoncés chaque vendredi',
+      'rules_prizes_intro': '- Si votre prédiction est exacte, vous gagnerez 1 des 2 prix :',
+      'prize1': '1. 100 £',
+      'prize2': '2. Un tout nouveau maillot de football',
+      'rules_contact': "Pour plus d'informations sur la réception de vos gains, veuillez envoyer un e-mail à : info@var6.net",
+      'rules_disclaimer': "L'application mobile Var 6 tient à préciser qu'Apple n'est en aucun cas impliquée dans le concours ou le tirage au sort proposés sur cette application. Var 6 agit en tant qu'entité indépendante et ne fait pas partie des produits Apple, seulement disponible sur l'App Store.",
+    },
+  };
+
+  String t(String key) {
+    final lang = locale.languageCode;
+    final table = _localizedValues[lang] ?? _localizedValues['en']!;
+    return table[key] ?? key;
+  }
+}
+
+class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
+  const AppLocalizationsDelegate();
+
+  @override
+  bool isSupported(Locale locale) =>
+      ['en', 'fr'].contains(locale.languageCode);
+
+  @override
+  Future<AppLocalizations> load(Locale locale) async {
+    return AppLocalizations(locale);
+  }
+
+  @override
+  bool shouldReload(covariant LocalizationsDelegate<AppLocalizations> old) =>
+      false;
+}
+
+================================================================================
+THEME NOTIFIER (lib/theme_notifier.dart)
+================================================================================
+
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class ThemeNotifier extends ChangeNotifier {
+  final String key = "theme";
+  SharedPreferences? _prefs;
+  bool _darkTheme;
+
+  bool get darkTheme => _darkTheme;
+
+  ThemeNotifier() : _darkTheme = false {
+    _loadFromPrefs();
+  }
+
+  _initPrefs() async {
+    _prefs ??= await SharedPreferences.getInstance();
+  }
+
+  _loadFromPrefs() async {
+    await _initPrefs();
+    _darkTheme = _prefs?.getBool(key) ?? false;
+    notifyListeners();
+  }
+
+  _saveToPrefs() async {
+    await _initPrefs();
+    _prefs?.setBool(key, _darkTheme);
+  }
+
+  void toggleTheme() {
+    _darkTheme = !_darkTheme;
+    _saveToPrefs();
+    notifyListeners();
+  }
+}
+
+================================================================================
+FIRESTORE SECURITY RULES (firestore.rules)
+================================================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/predictions/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Public matches selected by admin for betting
+    match /matches/{matchId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null &&
+        request.auth.token.email == 'admin@gmail.com';
+    }
+
+    // Scraped fixtures storage
+    match /fixtures/{fixtureId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null &&
+        request.auth.token.email == 'admin@gmail.com';
+    }
+
+    // Admin meta like last scrape date
+    match /admin/{docId} {
+      allow read: if request.auth != null &&
+        request.auth.token.email == 'admin@gmail.com';
+      allow write: if request.auth != null &&
+        request.auth.token.email == 'admin@gmail.com';
+    }
+  }
+}
+
+================================================================================
+FIREBASE CONFIG (firebase.json)
+================================================================================
+
+{
+  "firestore": {
+    "database": "(default)",
+    "location": "europe-west2",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}
+
+================================================================================
+ANDROID GOOGLE SERVICES (android/app/google-services.json)
+================================================================================
+
+{
+  "project_info": {
+    "project_number": "507455941575",
+    "project_id": "var6-51392",
+    "storage_bucket": "var6-51392.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:507455941575:android:bc7e4d925c9c497cf3c7e2",
+        "android_client_info": {
+          "package_name": "com.example.my_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
+
+================================================================================
+VB.NET SCRAPER (PremFixturesScraper/Program.vb)
+================================================================================
+
+Imports System
+Imports System.IO
+Imports System.Net.Http
+Imports System.Text
+Imports System.Text.RegularExpressions
+Imports System.Threading
+Imports OpenQA.Selenium
+Imports OpenQA.Selenium.Edge
+Imports System.Collections.Generic
+
+Module Program
+    Private ReadOnly WorkDir As String = Path.Combine(AppContext.BaseDirectory, "scrape_data")
+    Private ReadOnly RawPath As String = Path.Combine(WorkDir, "raw.txt")
+    Private ReadOnly FixturesPath As String = Path.Combine(WorkDir, "fixtures_parsed.txt")
+    Private ReadOnly ErrorsPath As String = Path.Combine(WorkDir, "errors.txt")
+    Private ReadOnly LogPath As String = Path.Combine(WorkDir, "log.txt")
+
+    Sub Main()
+        Try
+            Directory.CreateDirectory(WorkDir)
+            Log("Start run")
+            Dim url As String = "https://www.premierleague.com/en/news/4324539/all-380-fixtures-for-202526-premier-league-season"
+            Dim gotText As Boolean = FetchVisibleText(url, RawPath)
+            If Not gotText Then
+                Log("Selenium failed or blocked. Trying HTTP fallback")
+                Dim html As String = FetchHtml(url, 20000)
+                If html Is Nothing Then
+                    File.AppendAllText(ErrorsPath, $"{Timestamp()} | FETCH | Both Selenium and HTTP failed{Environment.NewLine}", New UTF8Encoding(False))
+                    Log("Fetch failed; exiting")
+                    Return
+                End If
+                Dim rough As String = HtmlToRoughText(html)
+                File.WriteAllText(RawPath, rough, New UTF8Encoding(False))
+                Log("Wrote rough text from HTML")
+            End If
+
+            Dim fixtures = ParseRawToFixtures(RawPath, ErrorsPath, url)
+            If fixtures.Count > 0 Then
+                Log($"Got {fixtures.Count} fixtures. UPLOADING to Firebase.")
+                fixtures.Insert(0, $"(Refreshed on {DateTime.Now:yyyy-MM-dd HH:mm})")
+                FirebaseService.DeleteAllFixtures().Wait()
+                FirebaseService.UploadFixtures(fixtures).Wait()
+                Log("Firebase upload complete.")
+            Else
+                Log("No fixtures parsed. Nothing to upload.")
+            End If
+            Log("Done")
+        Catch ex As Exception
+            Log($"FATAL: {ex.ToString()}")
+            File.AppendAllText(ErrorsPath, $"{Timestamp()} | FATAL | {ex.ToString()}{Environment.NewLine}", New UTF8Encoding(False))
+        End Try
+    End Sub
+
+    ' [Additional methods: FetchVisibleText, FetchHtml, HtmlToRoughText, ParseRawToFixtures, etc.]
+    ' [Full implementation includes web scraping logic for Premier League fixtures]
+
+End Module
+
+================================================================================
+VB.NET FIREBASE SERVICE (PremFixturesScraper/FirebaseService.vb)
+================================================================================
+
+Imports System.Net.Http
+Imports System.Text
+Imports System.Threading.Tasks
+Imports Newtonsoft.Json
+
+Public Module FirebaseService
+    Private Const FirebaseProject As String = "var6-51392"
+    Private Const ApiKey As String = "AIzaSyC2kZjQtro_hKd-TZRBTlXfqE9Fj4_PqUA" 
+    Private ReadOnly BaseUrl As String = $"https://firestore.googleapis.com/v1/projects/{FirebaseProject}/databases/(default)/documents"
+    Private ReadOnly AuthParam As String = $"?key={ApiKey}"
+
+    Public Async Function DeleteAllFixtures() As Task
+        Dim client As New HttpClient()
+        Dim path As String = "fixtures"
+        Dim nextPageToken As String = Nothing
+
+        Do
+            Dim listUrl As String = $"{BaseUrl}/{path}{AuthParam}"
+            If Not String.IsNullOrEmpty(nextPageToken) Then
+                listUrl &= $"&pageToken={nextPageToken}"
+            End If
+
+            Dim response = Await client.GetAsync(listUrl)
+            response.EnsureSuccessStatusCode()
+            Dim json = Await response.Content.ReadAsStringAsync()
+            Dim documentList = JsonConvert.DeserializeObject(Of DocumentList)(json)
+
+            If documentList.documents IsNot Nothing Then
+                For Each doc In documentList.documents
+                    Dim docId = doc.name.Split("/"c).Last()
+                    Dim deleteUrl As String = $"{BaseUrl}/fixtures/{docId}{AuthParam}"
+                    Dim deleteResponse = Await client.DeleteAsync(deleteUrl)
+                    deleteResponse.EnsureSuccessStatusCode()
+                Next
+            End If
+            nextPageToken = documentList.nextPageToken
+        Loop While Not String.IsNullOrEmpty(nextPageToken)
+    End Function
+
+    Public Async Function UploadFixtures(fixtures As List(Of String)) As Task
+        Dim client As New HttpClient()
+        For i As Integer = 0 To fixtures.Count - 1
+            Dim fixture = fixtures(i)
+            Dim fullUrl As String = $"{BaseUrl}/fixtures{AuthParam}"
+
+            Dim payload As New With {
+                .fields = New With {
+                    .line = New With {
+                        .stringValue = fixture
+                    },
+                    .orderIndex = New With {
+                        .integerValue = i
+                    }
+                }
+            }
+            Dim jsonPayload = JsonConvert.SerializeObject(payload)
+            Dim content = New StringContent(jsonPayload, Encoding.UTF8, "application/json")
+
+            Dim response = Await client.PostAsync(fullUrl, content)
+            response.EnsureSuccessStatusCode()
+        Next
+    End Function
+
+    Public Class DocumentList
+        Public Property documents As List(Of Document)
+        Public Property nextPageToken As String
+    End Class
+
+    Public Class Document
+        Public Property name As String
+    End Class
+End Module
+
+================================================================================
+TEAM LOGOS REQUIRED
+================================================================================
+The app requires team logo PNG files in the assets/logos/clubs/ directory.
+Required team codes and file names:
+- ars.png (Arsenal)
+- avl.png (Aston Villa)
+- bou.png (AFC Bournemouth)
+- bre.png (Brentford)
+- bha.png (Brighton & Hove Albion)
+- che.png (Chelsea)
+- cry.png (Crystal Palace)
+- eve.png (Everton)
+- ful.png (Fulham)
+- ips.png (Ipswich Town)
+- lei.png (Leicester City)
+- liv.png (Liverpool)
+- mci.png (Manchester City)
+- mun.png (Manchester United)
+- new.png (Newcastle United)
+- nfo.png (Nottingham Forest)
+- sou.png (Southampton)
+- tot.png (Tottenham Hotspur)
+- whu.png (West Ham United)
+- wol.png (Wolverhampton Wanderers)
+
+Also required:
+- assets/var6_logo.png (main app logo)
+
+================================================================================
+DEPLOYMENT SETUP INSTRUCTIONS
+================================================================================
+
+1. FIREBASE SETUP:
+   - Create new Firebase project
+   - Enable Authentication (Email/Password)
+   - Create Firestore database
+   - Update firebase_options.dart with your project credentials
+   - Update android/app/google-services.json
+   - Deploy firestore.rules to your project
+
+2. FLUTTER SETUP:
+   - Install Flutter SDK
+   - Run: flutter pub get
+   - Add team logo assets to assets/logos/clubs/
+   - Add main logo to assets/var6_logo.png
+
+3. VB.NET SCRAPER SETUP:
+   - Install .NET 8.0 SDK
+   - Install NuGet packages: Newtonsoft.Json, Selenium.WebDriver
+   - Update FirebaseService.vb with your Firebase credentials
+   - Download msedgedriver.exe to project directory
+
+4. BUILD & DEPLOY:
+   - Flutter: flutter build apk --release
+   - VB.NET: dotnet build --configuration Release
+
+5. ADMIN ACCESS:
+   - Email: admin@gmail.com
+   - Password: 111111
+   - Use admin panel to manage fixtures and matches
+
+================================================================================
+DATABASE STRUCTURE
+================================================================================
+
+COLLECTIONS:
+/users/{userId}/predictions/{predictionId}
+- matchId: string
+- homeScore: number
+- awayScore: number
+- homeTeam: string
+- awayTeam: string
+- homeTeamCode: string
+- awayTeamCode: string
+- createdAt: timestamp
+- lockAt: timestamp
+
+/matches/{matchId}
+- homeTeam: string
+- awayTeam: string
+- homeTeamCode: string
+- awayTeamCode: string
+- league: string
+- timeUtc: timestamp
+- time: string
+- homeScore: number (optional)
+- awayScore: number (optional)
+
+/fixtures/{fixtureId}
+- line: string (formatted fixture data)
+- orderIndex: number
+
+/admin/{docId}
+- lastScrape: timestamp
+- fixtureCount: number
+
+================================================================================
+END OF EXPORT
+================================================================================
+This export contains all necessary code, configuration, and setup instructions
+to recreate the VAR6 Betting App in a new environment.
+
+For questions or support, contact: info@var6.net
+
+// Copyright 2014 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
+
+import 'framework.dart';
+import 'gesture_detector.dart';
+
+/// Provides platform-specific acoustic and/or haptic feedback for certain
+/// actions.
+///
+/// For example, to play the Android-typically click sound when a button is
+/// tapped, call [forTap]. For the Android-specific vibration when long pressing
+/// an element, call [forLongPress]. Alternatively, you can also wrap your
+/// [GestureDetector.onTap] or [GestureDetector.onLongPress] callback in
+/// [wrapForTap] or [wrapForLongPress] to achieve the same (see example code
+/// below).
+///
+/// All methods in this class are usually called from within a
+/// [StatelessWidget.build] method or from a [State]'s methods as you have to
+/// provide a [BuildContext].
+///
+/// {@tool snippet}
+///
+/// To trigger platform-specific feedback before executing the actual callback:
+///
+/// ```dart
+/// class WidgetWithWrappedHandler extends StatelessWidget {
+///   const WidgetWithWrappedHandler({super.key});
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return GestureDetector(
+///       onTap: Feedback.wrapForTap(_onTapHandler, context),
+///       onLongPress: Feedback.wrapForLongPress(_onLongPressHandler, context),
+///       child: const Text('X'),
+///     );
+///   }
+///
+///   void _onTapHandler() {
+///     // Respond to tap.
+///   }
+///
+///   void _onLongPressHandler() {
+///     // Respond to long press.
+///   }
+/// }
+/// ```
+/// {@end-tool}
+/// {@tool snippet}
+///
+/// Alternatively, you can also call [forTap] or [forLongPress] directly within
+/// your tap or long press handler:
+///
+/// ```dart
+/// class WidgetWithExplicitCall extends StatelessWidget {
+///   const WidgetWithExplicitCall({super.key});
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return GestureDetector(
+///       onTap: () {
+///         // Do some work (e.g. check if the tap is valid)
+///         Feedback.forTap(context);
+///         // Do more work (e.g. respond to the tap)
+///       },
+///       onLongPress: () {
+///         // Do some work (e.g. check if the long press is valid)
+///         Feedback.forLongPress(context);
+///         // Do more work (e.g. respond to the long press)
+///       },
+///       child: const Text('X'),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+abstract final class Feedback {
+  /// Provides platform-specific feedback for a tap.
+  ///
+  /// On Android the click system sound is played. On iOS this is a no-op.
+  ///
+  /// See also:
+  ///
+  ///  * [wrapForTap] to trigger platform-specific feedback before executing a
+  ///    [GestureTapCallback].
+  static Future<void> forTap(BuildContext context) async {
+    context.findRenderObject()!.sendSemanticsEvent(const TapSemanticEvent());
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+      case TargetPlatform.fuchsia:
+        return SystemSound.play(SystemSoundType.click);
+      case TargetPlatform.iOS:
+      case TargetPlatform.linux:
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+        return Future<void>.value();
+    }
+  }
+
+  /// Wraps a [GestureTapCallback] to provide platform specific feedback for a
+  /// tap before the provided callback is executed.
+  ///
+  /// On Android the platform-typical click system sound is played. On iOS this
+  /// is a no-op as that platform usually doesn't provide feedback for a tap.
+  ///
+  /// See also:
+  ///
+  ///  * [forTap] to just trigger the platform-specific feedback without wrapping
+  ///    a [GestureTapCallback].
+  static GestureTapCallback? wrapForTap(
+    GestureTapCallback? callback,
+    BuildContext context,
+  ) {
+    if (callback == null) {
+      return null;
+    }
+    return () {
+      forTap(context);
+      callback();
+    };
+  }
+
+  /// Provides platform-specific feedback for a long press.
+  ///
+  /// On Android the platform-typical vibration is triggered. On iOS a
+  /// heavy-impact haptic feedback is triggered alongside the click system
+  /// sound, which was observed to be the default behavior on a physical iPhone
+  /// 15 Pro running iOS version 17.5.
+  ///
+  /// See also:
+  ///
+  ///  * [wrapForLongPress] to trigger platform-specific feedback before
+  ///    executing a [GestureLongPressCallback].
+  static Future<void> forLongPress(BuildContext context) {
+    context.findRenderObject()!.sendSemanticsEvent(
+      const LongPressSemanticsEvent(),
+    );
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+      case TargetPlatform.fuchsia:
+        return HapticFeedback.vibrate();
+      case TargetPlatform.iOS:
+        return Future.wait(<Future<void>>[
+          SystemSound.play(SystemSoundType.click),
+          HapticFeedback.heavyImpact(),
+        ]);
+      case TargetPlatform.linux:
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+        return Future<void>.value();
+    }
+  }
+
+  /// Wraps a [GestureLongPressCallback] to provide platform specific feedback
+  /// for a long press before the provided callback is executed.
+  ///
+  /// On Android the platform-typical vibration is triggered. On iOS a
+  /// heavy-impact haptic feedback is triggered alongside the click system
+  /// sound, which was observed to be the default behavior on a physical iPhone
+  /// 15 Pro running iOS version 17.5.
+  ///
+  /// See also:
+  ///
+  ///  * [forLongPress] to just trigger the platform-specific feedback without
+  ///    wrapping a [GestureLongPressCallback].
+  static GestureLongPressCallback? wrapForLongPress(
+    GestureLongPressCallback? callback,
+    BuildContext context,
+  ) {
+    if (callback == null) {
+      return null;
+    }
+    return () {
+      Feedback.forLongPress(context);
+      callback();
+    };
+  }
+}
