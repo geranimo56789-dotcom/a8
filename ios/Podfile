@@ -41,7 +41,7 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
     end
+    # Apply Flutter post_install settings per target (Swift concurrency, etc.).
+    flutter_additional_ios_build_settings(target)
   end
-  # Apply Flutter post_install hooks (Swift concurrency, etc.).
-  flutter_additional_ios_build_settings(installer)
 end
