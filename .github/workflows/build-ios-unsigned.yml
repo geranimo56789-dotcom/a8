@@ -120,6 +120,25 @@ jobs:
           echo "flutter build ipa $BUILD_ARGS"
           flutter build ipa $BUILD_ARGS
 
+      - name: Package unsigned IPA from XCArchive
+        run: |
+          set -e
+          ARCHIVE_DIR="build/ios/archive/Runner.xcarchive"
+          APP_PATH="$ARCHIVE_DIR/Products/Applications/Runner.app"
+          OUT_DIR="build/ios/ipa"
+          if [ -d "$APP_PATH" ]; then
+            mkdir -p "$OUT_DIR/Payload"
+            cp -R "$APP_PATH" "$OUT_DIR/Payload/Runner.app"
+            # Ensure output is explicitly unsigned
+            rm -rf "$OUT_DIR/Payload/Runner.app/_CodeSignature" || true
+            rm -f "$OUT_DIR/Payload/Runner.app/embedded.mobileprovision" || true
+            (cd "$OUT_DIR" && zip -qry "Runner-unsigned.ipa" "Payload")
+            rm -rf "$OUT_DIR/Payload"
+            echo "Created unsigned IPA at $OUT_DIR/Runner-unsigned.ipa"
+          else
+            echo "Runner.app not found at $APP_PATH; skipping manual packaging."
+          fi
+
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
