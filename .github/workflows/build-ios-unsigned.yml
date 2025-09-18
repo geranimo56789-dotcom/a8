@@ -89,11 +89,15 @@ jobs:
         run: flutter pub get
 
       - name: Install CocoaPods dependencies
+        if: ${{ hashFiles('ios/Podfile') != '' }}
         env:
           COCOAPODS_DISABLE_STATS: 'true'
         run: |
           cd ios
           pod install --repo-update
+      - name: Skip CocoaPods (no Podfile)
+        if: ${{ hashFiles('ios/Podfile') == '' }}
+        run: echo "No ios/Podfile found; skipping pod install."
 
       - name: Build unsigned IPA
         env:
