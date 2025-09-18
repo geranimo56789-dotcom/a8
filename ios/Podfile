@@ -21,14 +21,18 @@ def flutter_root
     return matches[1].strip if matches
   end
   raise "Could not find FLUTTER_ROOT. Check Generated.xcconfig."
+# Load Flutter's CocoaPods helper from the Flutter SDK.
+flutter_root = ENV['FLUTTER_ROOT']
+unless flutter_root && File.exist?(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper.rb'))
+  raise "FLUTTER_ROOT is not set or podhelper.rb not found at #{flutter_root}. Ensure Flutter is installed and available in CI."
 end
-
+require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper.rb'))
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
 # If you use use_frameworks!/use_modular_headers!, add here if needed, but Flutter defaults are fine for most apps.
 
 install! 'cocoapods', :deterministic_uuids => false
-
+flutter_ios_podfile_setup
 flutter_ios_podfile_setup
 
 target 'Runner' do
