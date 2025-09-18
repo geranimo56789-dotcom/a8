@@ -6,6 +6,10 @@ platform :ios, '13.0'
 # CocoaPods analytics sends network stats.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
+# Build pods as frameworks instead of static libraries to avoid
+# Swift static-library integration issues with non-modular dependencies.
+use_frameworks!
+
 # Locate Flutter SDK root from Generated.xcconfig, then load Flutter's podhelper.
 def flutter_root
   generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
@@ -40,12 +44,5 @@ post_install do |installer|
     # Apply Flutter post_install settings per target (Swift concurrency, etc.).
     flutter_additional_ios_build_settings(target)
 
-    # Make certain Obj-C pods expose modules so Swift pods can import them
-    # without enabling modular headers globally (which breaks some pods like gRPC).
-    if ['GoogleUtilities', 'nanopb'].include?(target.name)
-      target.build_configurations.each do |config|
-        config.build_settings['DEFINES_MODULE'] = 'YES'
-      end
-    end
   end
 end
