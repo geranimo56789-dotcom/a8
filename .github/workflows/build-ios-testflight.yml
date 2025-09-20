@@ -1,0 +1,220 @@
+name: Build and Upload iOS (TestFlight)
+
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: iOS bundle identifier (e.g. com.company.app)
+        required: false
+        default: ''
+      team_id:
+        description: Apple Developer Team ID (10-character)
+        required: false
+        default: ''
+      flavor:
+        description: Flutter flavor (optional)
+        required: false
+        default: ''
+      build_name:
+        description: App version name (e.g. 1.0.0)
+        required: false
+        default: ''
+      build_number:
+        description: App build number (e.g. 1)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  # Prefer repository/environment variables; workflow inputs override if provided.
+  IOS_BUNDLE_ID: ${{ inputs.bundle_id != '' && inputs.bundle_id || vars.IOS_BUNDLE_ID }}
+  IOS_DEVELOPMENT_TEAM: ${{ inputs.team_id != '' && inputs.team_id || vars.IOS_DEVELOPMENT_TEAM }}
+
+jobs:
+  build-sign-upload:
+    name: Build signed IPA and upload to TestFlight
+    runs-on: macos-14
+    timeout-minutes: 75
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java (for Gradle/Android tooling used by Flutter)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Flutter precache iOS
+        run: flutter precache --ios
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cocoapods
+            ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Install CocoaPods dependencies (best-effort)
+        if: ${{ hashFiles('ios/Podfile') != '' }}
+        env:
+          COCOAPODS_DISABLE_STATS: 'true'
+        run: |
+          set -e
+          cd ios
+          if command -v pod >/dev/null 2>&1; then
+            pod install --repo-update || echo "pod install failed; continuing to let flutter build drive pods"
+          else
+            echo "CocoaPods not available; continuing"
+          fi
+
+      - name: Validate required inputs
+        run: |
+          set -e
+          if [ -z "${IOS_BUNDLE_ID}" ]; then echo "Missing IOS_BUNDLE_ID (set vars.IOS_BUNDLE_ID or provide input bundle_id)"; exit 1; fi
+          if [ -z "${IOS_DEVELOPMENT_TEAM}" ]; then echo "Missing IOS_DEVELOPMENT_TEAM (set vars.IOS_DEVELOPMENT_TEAM or provide input team_id)"; exit 1; fi
+
+      - name: Import code signing certificate (.p12)
+        uses: apple-actions/import-codesign-certs@v1
+        with:
+          p12-file-base64: ${{ secrets.IOS_CERT_P12_BASE64 }}
+          p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
+
+      - name: Write App Store Connect API key to file
+        # Needed for -allowProvisioningUpdates and TestFlight upload
+        run: |
+          set -e
+          if [ -z "${{ secrets.APPSTORE_PRIVATE_KEY }}" ]; then echo "Missing secret APPSTORE_PRIVATE_KEY"; exit 1; fi
+          echo "${{ secrets.APPSTORE_PRIVATE_KEY }}" > "$RUNNER_TEMP/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: Download App Store (distribution) provisioning profile
+        uses: apple-actions/download-provisioning-profiles@v2
+        with:
+          bundle-id: ${{ env.IOS_BUNDLE_ID }}
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          profile-type: IOS_APP_STORE
+
+      - name: Resolve provisioning profile name
+        id: profile
+        shell: bash
+        run: |
+          set -e
+          PROFILE_PATH=$(ls -1 "${HOME}/Library/MobileDevice/Provisioning Profiles"/*.mobileprovision | head -n1)
+          if [ ! -f "$PROFILE_PATH" ]; then echo "No provisioning profile found"; exit 1; fi
+          /usr/bin/security cms -D -i "$PROFILE_PATH" -o profile.plist
+          NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' profile.plist)
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' profile.plist)
+          echo "Profile: $NAME ($UUID)"
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "uuid=$UUID" >> $GITHUB_OUTPUT
+
+      - name: Archive (Xcode) with manual signing
+        run: |
+          set -e
+          mkdir -p build/ios/archive
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            DEVELOPMENT_TEAM=${IOS_DEVELOPMENT_TEAM} \
+            PRODUCT_BUNDLE_IDENTIFIER=${IOS_BUNDLE_ID} \
+            CODE_SIGN_STYLE=Manual \
+            PROVISIONING_PROFILE_SPECIFIER='${{ steps.profile.outputs.name }}' \
+            OTHER_CODE_SIGN_FLAGS="--keychain ~/Library/Keychains/login.keychain-db" \
+            clean archive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
+            -authenticationKeyID "${{ secrets.APPSTORE_KEY_ID }}" \
+            -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}"
+
+      - name: Create exportOptions.plist (App Store)
+        run: |
+          cat > exportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>teamID</key>
+            <string>${IOS_DEVELOPMENT_TEAM}</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${IOS_BUNDLE_ID}</key>
+              <string>${{ steps.profile.outputs.name }}</string>
+            </dict>
+            <key>compileBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>manageAppVersionAndBuildNumber</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Export signed IPA
+        run: |
+          set -e
+          mkdir -p build/ios/ipa
+          # Optionally set version/build via xcodebuild overrides if provided
+          EXTRA_BUILD_ARGS=()
+          if [ -n "${{ inputs.build_name }}" ]; then EXTRA_BUILD_ARGS+=(MARKETING_VERSION=${{ inputs.build_name }}); fi
+          if [ -n "${{ inputs.build_number }}" ]; then EXTRA_BUILD_ARGS+=(CURRENT_PROJECT_VERSION=${{ inputs.build_number }}); fi
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportOptionsPlist exportOptions.plist \
+            -exportPath build/ios/ipa \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
+            -authenticationKeyID "${{ secrets.APPSTORE_KEY_ID }}" \
+            -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
+            ${EXTRA_BUILD_ARGS[@]}
+
+      - name: Upload to TestFlight
+        uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: build/ios/ipa/*.ipa
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+
+      - name: Upload artifacts (IPA + XCArchive)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-signed-artifacts
+          path: |
+            build/ios/ipa/*.ipa
+            build/ios/archive/*.xcarchive
+          retention-days: 7
