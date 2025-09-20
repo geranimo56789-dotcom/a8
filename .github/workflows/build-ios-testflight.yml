@@ -31,8 +31,6 @@ env:
   # Prefer repository/environment variables; workflow inputs override if provided.
   IOS_BUNDLE_ID: ${{ inputs.bundle_id != '' && inputs.bundle_id || vars.IOS_BUNDLE_ID }}
   IOS_DEVELOPMENT_TEAM: ${{ inputs.team_id != '' && inputs.team_id || vars.IOS_DEVELOPMENT_TEAM }}
-  HAS_API: ${{ secrets.APPSTORE_PRIVATE_KEY != '' && secrets.APPSTORE_KEY_ID != '' && secrets.APPSTORE_ISSUER_ID != '' }}
-  HAS_APPLE_ID: ${{ secrets.APPLE_ID != '' && secrets.APP_SPECIFIC_PASSWORD != '' }}
 
 jobs:
   build-sign-upload:
@@ -43,6 +41,28 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Compute auth flags
+        id: auth
+        env:
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APP_SPECIFIC_PASSWORD: ${{ secrets.APP_SPECIFIC_PASSWORD }}
+        shell: bash
+        run: |
+          set -e
+          has_api="false"
+          has_apple_id="false"
+          if [ -n "$APPSTORE_PRIVATE_KEY" ] && [ -n "$APPSTORE_KEY_ID" ] && [ -n "$APPSTORE_ISSUER_ID" ]; then
+            has_api="true"
+          fi
+          if [ -n "$APPLE_ID" ] && [ -n "$APP_SPECIFIC_PASSWORD" ]; then
+            has_apple_id="true"
+          fi
+          echo "has_api=$has_api" >> $GITHUB_OUTPUT
+          echo "has_apple_id=$has_apple_id" >> $GITHUB_OUTPUT
 
       - name: Set up Java (for Gradle/Android tooling used by Flutter)
         uses: actions/setup-java@v4
@@ -106,15 +126,17 @@ jobs:
           p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
 
       - name: Write App Store Connect API key to file
-        if: env.HAS_API == 'true'
+        if: steps.auth.outputs.has_api == 'true'
         # Needed for -allowProvisioningUpdates and TestFlight upload when using API key
+        env:
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
         run: |
           set -e
-          echo "${{ secrets.APPSTORE_PRIVATE_KEY }}" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "$APPSTORE_PRIVATE_KEY" > "$RUNNER_TEMP/AuthKey.p8"
           chmod 600 "$RUNNER_TEMP/AuthKey.p8"
 
       - name: Download App Store (distribution) provisioning profile via API
-        if: env.HAS_API == 'true'
+        if: steps.auth.outputs.has_api == 'true'
         uses: apple-actions/download-provisioning-profiles@v2
         with:
           bundle-id: ${{ env.IOS_BUNDLE_ID }}
@@ -124,18 +146,25 @@ jobs:
           profile-type: IOS_APP_STORE
 
       - name: Install provisioning profile from secret (base64)
-        if: env.HAS_API != 'true' && secrets.IOS_MOBILEPROVISION_BASE64 != ''
+        if: steps.auth.outputs.has_api != 'true'
+        env:
+          IOS_MOBILEPROVISION_BASE64: ${{ secrets.IOS_MOBILEPROVISION_BASE64 }}
         run: |
           set -e
           mkdir -p "${HOME}/Library/MobileDevice/Provisioning Profiles"
+          if [ -z "$IOS_MOBILEPROVISION_BASE64" ]; then echo "IOS_MOBILEPROVISION_BASE64 not set"; exit 1; fi
           echo "Installing provisioning profile from IOS_MOBILEPROVISION_BASE64"
-          echo "${{ secrets.IOS_MOBILEPROVISION_BASE64 }}" | base64 --decode > "${HOME}/Library/MobileDevice/Provisioning Profiles/profile.mobileprovision"
+          echo "$IOS_MOBILEPROVISION_BASE64" | base64 --decode > "${HOME}/Library/MobileDevice/Provisioning Profiles/profile.mobileprovision"
 
       - name: Fail if no provisioning profile configured
-        if: env.HAS_API != 'true' && secrets.IOS_MOBILEPROVISION_BASE64 == ''
+        if: steps.auth.outputs.has_api != 'true'
+        env:
+          IOS_MOBILEPROVISION_BASE64: ${{ secrets.IOS_MOBILEPROVISION_BASE64 }}
         run: |
-          echo "No provisioning profile available. Provide either API key secrets (APPSTORE_PRIVATE_KEY/KEY_ID/ISSUER_ID) or a base64 provisioning profile in IOS_MOBILEPROVISION_BASE64." >&2
-          exit 1
+          if [ -z "$IOS_MOBILEPROVISION_BASE64" ]; then
+            echo "No provisioning profile available. Provide either API key secrets (APPSTORE_PRIVATE_KEY/KEY_ID/ISSUER_ID) or a base64 provisioning profile in IOS_MOBILEPROVISION_BASE64." >&2
+            exit 1
+          fi
 
       - name: Resolve provisioning profile name
         id: profile
@@ -152,6 +181,8 @@ jobs:
           echo "uuid=$UUID" >> $GITHUB_OUTPUT
 
       - name: Archive (Xcode) with manual signing
+        env:
+          HAS_API: ${{ steps.auth.outputs.has_api }}
         run: |
           set -e
           mkdir -p build/ios/archive
@@ -207,6 +238,8 @@ jobs:
           EOF
 
       - name: Export signed IPA
+        env:
+          HAS_API: ${{ steps.auth.outputs.has_api }}
         run: |
           set -e
           mkdir -p build/ios/ipa
@@ -231,7 +264,7 @@ jobs:
             ${EXTRA_BUILD_ARGS[@]}
 
       - name: Upload to TestFlight (API key)
-        if: env.HAS_API == 'true'
+        if: steps.auth.outputs.has_api == 'true'
         uses: apple-actions/upload-testflight-build@v1
         with:
           app-path: build/ios/ipa/*.ipa
@@ -240,25 +273,34 @@ jobs:
           api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
 
       - name: Upload to TestFlight (Apple ID + app-specific password)
-        if: env.HAS_API != 'true' && env.HAS_APPLE_ID == 'true'
+        if: steps.auth.outputs.has_api != 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APP_SPECIFIC_PASSWORD: ${{ secrets.APP_SPECIFIC_PASSWORD }}
+          ITC_PROVIDER: ${{ secrets.ITC_PROVIDER }}
         run: |
           set -e
           IPA=$(ls -1 build/ios/ipa/*.ipa | head -n1)
           if [ ! -f "$IPA" ]; then echo "IPA not found"; exit 1; fi
           echo "Uploading via iTMSTransporter using Apple ID"
           # Optional provider short name (when Apple ID is in multiple teams)
-          PROVIDER="${{ secrets.ITC_PROVIDER }}"
-          if [ -n "$PROVIDER" ]; then
-            xcrun iTMSTransporter -m upload -assetFile "$IPA" -u "${{ secrets.APPLE_ID }}" -p "${{ secrets.APP_SPECIFIC_PASSWORD }}" -itc_provider "$PROVIDER" -repetitionAttempts 3 -v informational
+          if [ -z "$APPLE_ID" ] || [ -z "$APP_SPECIFIC_PASSWORD" ]; then echo "APPLE_ID/APP_SPECIFIC_PASSWORD not set"; exit 1; fi
+          if [ -n "$ITC_PROVIDER" ]; then
+            xcrun iTMSTransporter -m upload -assetFile "$IPA" -u "$APPLE_ID" -p "$APP_SPECIFIC_PASSWORD" -itc_provider "$ITC_PROVIDER" -repetitionAttempts 3 -v informational
           else
-            xcrun iTMSTransporter -m upload -assetFile "$IPA" -u "${{ secrets.APPLE_ID }}" -p "${{ secrets.APP_SPECIFIC_PASSWORD }}" -repetitionAttempts 3 -v informational
+            xcrun iTMSTransporter -m upload -assetFile "$IPA" -u "$APPLE_ID" -p "$APP_SPECIFIC_PASSWORD" -repetitionAttempts 3 -v informational
           fi
 
       - name: Fail upload if no credentials provided
-        if: env.HAS_API != 'true' && env.HAS_APPLE_ID != 'true'
+        if: steps.auth.outputs.has_api != 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APP_SPECIFIC_PASSWORD: ${{ secrets.APP_SPECIFIC_PASSWORD }}
         run: |
-          echo "No TestFlight upload credentials provided. Provide API key secrets or APPLE_ID + APP_SPECIFIC_PASSWORD (and optional ITC_PROVIDER)." >&2
-          exit 1
+          if [ -z "$APPLE_ID" ] || [ -z "$APP_SPECIFIC_PASSWORD" ]; then
+            echo "No TestFlight upload credentials provided. Provide API key secrets or APPLE_ID + APP_SPECIFIC_PASSWORD (and optional ITC_PROVIDER)." >&2
+            exit 1
+          fi
 
       - name: Upload artifacts (IPA + XCArchive)
         if: always()
