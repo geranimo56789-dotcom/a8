@@ -18,12 +18,22 @@ You can also pass these as workflow inputs when dispatching, but variables are s
 Add these secrets:
 - IOS_CERT_P12_BASE64: Base64 of your Apple Distribution .p12
 - IOS_CERT_PASSWORD: Password for the .p12 export
-- APPSTORE_ISSUER_ID: Issuer ID from App Store Connect API Keys page
-- APPSTORE_KEY_ID: Key ID from App Store Connect API Keys page
-- APPSTORE_PRIVATE_KEY: The full contents of the downloaded .p8 file (begin/end PRIVATE KEY)
+
+Then choose ONE upload method:
+
+1) API Key (recommended)
+- APPSTORE_ISSUER_ID: Issuer ID from App Store Connect → Users and Access → Keys
+- APPSTORE_KEY_ID: Key ID from the key you generated
+- APPSTORE_PRIVATE_KEY: The contents of the .p8 (BEGIN/END PRIVATE KEY)
+
+2) Apple ID + App-specific password (alternative)
+- APPLE_ID: Your Apple ID email
+- APP_SPECIFIC_PASSWORD: App-specific password from https://appleid.apple.com
+- ITC_PROVIDER: Optional, only if your Apple ID belongs to multiple teams
 
 Notes:
-- The workflow automatically downloads the App Store (distribution) provisioning profile using your API key and bundle ID. You do NOT need to upload a profile.
+- If you provide API keys, the workflow automatically downloads the App Store provisioning profile for your bundle ID.
+- If you do NOT provide API keys, you can instead set `IOS_MOBILEPROVISION_BASE64` with your provisioning profile (the scripts can base64 a .mobileprovision for you).
 - The .p12 must be the Distribution (not Development) cert that matches your team.
 
 ### How to create/export the .p12 certificate
@@ -49,6 +59,8 @@ Copy the entire text output into the secret IOS_CERT_P12_BASE64. Add the chosen 
 - Download the .p8 and note the Key ID and Issuer ID
 - Paste the .p8 contents (including the BEGIN/END lines) into the secret APPSTORE_PRIVATE_KEY
 - Set APPSTORE_KEY_ID and APPSTORE_ISSUER_ID secrets accordingly
+
+If the “Keys” page is missing, your Apple ID likely does not have permission. Ask the Account Holder (Owner) to grant access or generate a key for you. Otherwise, use the Apple ID + app-specific password method.
 
 ### Run the workflow
 Once variables and secrets are set, start the workflow “Build and Upload iOS (TestFlight)” from the Actions tab. You can provide optional inputs:
