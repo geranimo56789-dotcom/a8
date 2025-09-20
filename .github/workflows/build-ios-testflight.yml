@@ -135,15 +135,8 @@ jobs:
           echo "$APPSTORE_PRIVATE_KEY" > "$RUNNER_TEMP/AuthKey.p8"
           chmod 600 "$RUNNER_TEMP/AuthKey.p8"
 
-      - name: Download App Store (distribution) provisioning profile via API
-        if: steps.auth.outputs.has_api == 'true'
-        uses: apple-actions/download-provisioning-profiles@v2
-        with:
-          bundle-id: ${{ env.IOS_BUNDLE_ID }}
-          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
-          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
-          profile-type: IOS_APP_STORE
+      # When API key is provided, we'll use Automatic signing with -allowProvisioningUpdates
+      # and let Xcode manage the profile. No need to download a profile.
 
       - name: Install provisioning profile from secret (base64)
         if: steps.auth.outputs.has_api != 'true'
@@ -166,7 +159,8 @@ jobs:
             exit 1
           fi
 
-      - name: Resolve provisioning profile name
+      - name: Resolve provisioning profile name (manual signing only)
+        if: steps.auth.outputs.has_api != 'true'
         id: profile
         shell: bash
         run: |
@@ -195,6 +189,12 @@ jobs:
               -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}"
             )
           fi
+          SIGN_ARGS=()
+          if [ "${HAS_API}" = "true" ]; then
+            SIGN_ARGS+=(CODE_SIGN_STYLE=Automatic)
+          else
+            SIGN_ARGS+=(CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER='${{ steps.profile.outputs.name }}')
+          fi
           xcodebuild \
             -workspace ios/Runner.xcworkspace \
             -scheme Runner \
@@ -203,39 +203,63 @@ jobs:
             -archivePath build/ios/archive/Runner.xcarchive \
             DEVELOPMENT_TEAM=${IOS_DEVELOPMENT_TEAM} \
             PRODUCT_BUNDLE_IDENTIFIER=${IOS_BUNDLE_ID} \
-            CODE_SIGN_STYLE=Manual \
-            PROVISIONING_PROFILE_SPECIFIER='${{ steps.profile.outputs.name }}' \
+            ${SIGN_ARGS[@]} \
             OTHER_CODE_SIGN_FLAGS="--keychain ~/Library/Keychains/login.keychain-db" \
             clean archive \
             ${AUTH_ARGS[@]}
 
       - name: Create exportOptions.plist (App Store)
+        env:
+          HAS_API: ${{ steps.auth.outputs.has_api }}
         run: |
-          cat > exportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>teamID</key>
-            <string>${IOS_DEVELOPMENT_TEAM}</string>
-            <key>provisioningProfiles</key>
+          if [ "${HAS_API}" = "true" ]; then
+            cat > exportOptions.plist <<EOF
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
             <dict>
-              <key>${IOS_BUNDLE_ID}</key>
-              <string>${{ steps.profile.outputs.name }}</string>
+              <key>method</key>
+              <string>app-store</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>teamID</key>
+              <string>${IOS_DEVELOPMENT_TEAM}</string>
+              <key>compileBitcode</key>
+              <false/>
+              <key>uploadSymbols</key>
+              <true/>
+              <key>manageAppVersionAndBuildNumber</key>
+              <true/>
             </dict>
-            <key>compileBitcode</key>
-            <false/>
-            <key>uploadSymbols</key>
-            <true/>
-            <key>manageAppVersionAndBuildNumber</key>
-            <true/>
-          </dict>
-          </plist>
-          EOF
+            </plist>
+            EOF
+          else
+            cat > exportOptions.plist <<EOF
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>teamID</key>
+              <string>${IOS_DEVELOPMENT_TEAM}</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                <key>${IOS_BUNDLE_ID}</key>
+                <string>${{ steps.profile.outputs.name }}</string>
+              </dict>
+              <key>compileBitcode</key>
+              <false/>
+              <key>uploadSymbols</key>
+              <true/>
+              <key>manageAppVersionAndBuildNumber</key>
+              <true/>
+            </dict>
+            </plist>
+            EOF
+          fi
 
       - name: Export signed IPA
         env:
