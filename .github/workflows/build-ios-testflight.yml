@@ -184,8 +184,10 @@ jobs:
         env:
           HAS_API: ${{ steps.auth.outputs.has_api }}
         run: |
-          set -e
-          mkdir -p build/ios/archive
+          set -euo pipefail
+          mkdir -p build/ios/archive build/ios/logs
+          echo "Listing Xcode schemes to verify 'Runner' exists:"
+          xcodebuild -list -workspace ios/Runner.xcworkspace || true
           AUTH_ARGS=()
           if [ "${HAS_API}" = "true" ]; then
             AUTH_ARGS+=(
@@ -197,7 +199,8 @@ jobs:
           fi
           SIGN_ARGS=()
           if [ "${HAS_API}" = "true" ]; then
-            SIGN_ARGS+=(CODE_SIGN_STYLE=Automatic)
+            # Force distribution identity for Release archive to avoid CI trying to generate a Development cert
+            SIGN_ARGS+=(CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Distribution")
           else
             SIGN_ARGS+=(CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER='${{ steps.profile.outputs.name }}')
           fi
@@ -211,7 +214,10 @@ jobs:
             PRODUCT_BUNDLE_IDENTIFIER=${IOS_BUNDLE_ID} \
             ${SIGN_ARGS[@]} \
             clean archive \
-            ${AUTH_ARGS[@]}
+            ${AUTH_ARGS[@]} \
+            | tee build/ios/logs/xcodebuild-archive.log
+          echo "\nSelected signing identity during archive (detected from build settings):" || true
+          xcodebuild -showBuildSettings -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release | grep -E "CODE_SIGN_IDENTITY|CODE_SIGN_STYLE" || true
 
       - name: Create exportOptions.plist (App Store)
         env:
@@ -270,8 +276,8 @@ jobs:
         env:
           HAS_API: ${{ steps.auth.outputs.has_api }}
         run: |
-          set -e
-          mkdir -p build/ios/ipa
+          set -euo pipefail
+          mkdir -p build/ios/ipa build/ios/logs
           # Optionally set version/build via xcodebuild overrides if provided
           EXTRA_BUILD_ARGS=()
           if [ -n "${{ inputs.build_name }}" ]; then EXTRA_BUILD_ARGS+=(MARKETING_VERSION=${{ inputs.build_name }}); fi
@@ -290,7 +296,8 @@ jobs:
             -exportOptionsPlist exportOptions.plist \
             -exportPath build/ios/ipa \
             ${AUTH_ARGS[@]} \
-            ${EXTRA_BUILD_ARGS[@]}
+            ${EXTRA_BUILD_ARGS[@]} \
+            | tee build/ios/logs/xcodebuild-export.log
 
       - name: Upload to TestFlight (API key)
         if: steps.auth.outputs.has_api == 'true'
@@ -339,4 +346,5 @@ jobs:
           path: |
             build/ios/ipa/*.ipa
             build/ios/archive/*.xcarchive
+            build/ios/logs/*.log
           retention-days: 7
