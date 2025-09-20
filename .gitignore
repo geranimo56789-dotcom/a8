@@ -44,3 +44,27 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# iOS/Xcode
+ios/Pods/
+ios/Podfile.lock
+ios/Flutter/ephemeral/
+*.xcarchive
+*.mobileprovision
+
+# Signing secrets
+*.p12
+*.pem
+*.csr
+*.key
+AuthKey_*.p8
+scripts/*.p12
+scripts/*.pem
+scripts/*.csr
+scripts/*.key
+scripts/ios_dist.*
+
+# App artifacts
+*.ipa
+*.apk
+app-release-signed.apk
