@@ -23,6 +23,12 @@ on:
         description: App build number (e.g. 1)
         required: false
         default: ''
+  push:
+    branches:
+      - main
+    paths:
+      - 'ios/**'
+      - '.github/workflows/build-ios-testflight.yml'
 
 permissions:
   contents: read
@@ -204,7 +210,6 @@ jobs:
             DEVELOPMENT_TEAM=${IOS_DEVELOPMENT_TEAM} \
             PRODUCT_BUNDLE_IDENTIFIER=${IOS_BUNDLE_ID} \
             ${SIGN_ARGS[@]} \
-            OTHER_CODE_SIGN_FLAGS="--keychain ~/Library/Keychains/login.keychain-db" \
             clean archive \
             ${AUTH_ARGS[@]}
 
