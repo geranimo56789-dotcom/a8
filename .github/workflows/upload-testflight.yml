@@ -1,0 +1,57 @@
+name: Upload iOS IPA to TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag containing IPA asset
+        required: false
+        default: ios-signed
+      ipa_name:
+        description: IPA filename to upload
+        required: false
+        default: Runner-signed.ipa
+
+jobs:
+  upload:
+    runs-on: macos-14
+    steps:
+      - name: Download IPA from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh release download "${{ inputs.release_tag }}" -p "${{ inputs.ipa_name }}" -O app.ipa
+
+      - name: Try App Store Connect API key upload (xcrun altool)
+        if: ${{ secrets.APPSTORE_PRIVATE_KEY && secrets.APPSTORE_KEY_ID && secrets.APPSTORE_ISSUER_ID }}
+        run: |
+          set -e
+          echo "Using App Store Connect API key"
+          xcrun altool --upload-app -f app.ipa -t ios \
+            --apiKey ${{ secrets.APPSTORE_KEY_ID }} \
+            --apiIssuer ${{ secrets.APPSTORE_ISSUER_ID }} \
+            --verbose || true
+
+      - name: Fallback to iTMSTransporter (API key)
+        if: ${{ secrets.APPSTORE_PRIVATE_KEY && secrets.APPSTORE_KEY_ID && secrets.APPSTORE_ISSUER_ID }}
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          set -e
+          # Write private key to file
+          echo "$ASC_PRIVATE_KEY" > authkey.p8
+          xcrun iTMSTransporter -m upload -assetFile app.ipa -apiKey $ASC_KEY_ID -apiIssuer $ASC_ISSUER_ID -v informational || true
+
+      - name: Apple ID upload (if provided)
+        if: ${{ secrets.APPLE_ID && secrets.APP_SPECIFIC_PASSWORD }}
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APP_SPECIFIC_PASSWORD: ${{ secrets.APP_SPECIFIC_PASSWORD }}
+          ITC_PROVIDER: ${{ secrets.ITC_PROVIDER }}
+        run: |
+          set -e
+          if [ -n "$ITC_PROVIDER" ]; then PROVIDER_ARGS="-itc_provider $ITC_PROVIDER"; else PROVIDER_ARGS=""; fi
+          xcrun iTMSTransporter -m upload -assetFile app.ipa -u "$APPLE_ID" -p "$APP_SPECIFIC_PASSWORD" $PROVIDER_ARGS -v informational
