@@ -170,4 +170,8 @@ jobs:
           mkdir -p "$HOME/.appstoreconnect/private_keys"
           KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
           echo "$ASC_PRIVATE_KEY" > "$KEY_PATH"
+          echo "Attempting upload with altool..."
+          if xcrun altool --upload-app -f "$IPA_PATH" -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" --verbose; then
+            echo "altool upload succeeded"; exit 0; fi
+          echo "altool failed, falling back to iTMSTransporter..."
           xcrun iTMSTransporter -m upload -assetFile "$IPA_PATH" -apiKey "$ASC_KEY_ID" -apiIssuer "$ASC_ISSUER_ID" -v informational
