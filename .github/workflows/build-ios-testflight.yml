@@ -212,9 +212,9 @@ jobs:
             -archivePath build/ios/archive/Runner.xcarchive \
             DEVELOPMENT_TEAM=${IOS_DEVELOPMENT_TEAM} \
             PRODUCT_BUNDLE_IDENTIFIER=${IOS_BUNDLE_ID} \
-            ${SIGN_ARGS[@]} \
+            "${SIGN_ARGS[@]}" \
             clean archive \
-            ${AUTH_ARGS[@]} \
+            "${AUTH_ARGS[@]}" \
             | tee build/ios/logs/xcodebuild-archive.log
           echo "\nSelected signing identity during archive (detected from build settings):" || true
           xcodebuild -showBuildSettings -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release | grep -E "CODE_SIGN_IDENTITY|CODE_SIGN_STYLE" || true
@@ -295,8 +295,8 @@ jobs:
             -archivePath build/ios/archive/Runner.xcarchive \
             -exportOptionsPlist exportOptions.plist \
             -exportPath build/ios/ipa \
-            ${AUTH_ARGS[@]} \
-            ${EXTRA_BUILD_ARGS[@]} \
+            "${AUTH_ARGS[@]}" \
+            "${EXTRA_BUILD_ARGS[@]}" \
             | tee build/ios/logs/xcodebuild-export.log
 
       - name: Upload to TestFlight (API key)
