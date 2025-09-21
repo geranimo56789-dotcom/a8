@@ -91,6 +91,7 @@ jobs:
           p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
 
       - name: Install provisioning profile
+        id: install_provisioning_profile
         env:
           IOS_MOBILEPROVISION_BASE64: ${{ secrets.IOS_MOBILEPROVISION_BASE64 }}
         run: |
@@ -114,12 +115,12 @@ jobs:
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict>
-            <key>method</key><string>app-store</string>
+            <key>method</key><string>app-store-connect</string>
             <key>signingStyle</key><string>manual</string>
             <key>teamID</key><string>${IOS_DEVELOPMENT_TEAM}</string>
             <key>signingCertificate</key><string>Apple Distribution</string>
             <key>provisioningProfiles</key><dict>
-              <key>${IOS_BUNDLE_ID}</key><string>${{ steps.install_provisioning_profile.outputs.profile_name || 'profile' }}</string>
+              <key>${IOS_BUNDLE_ID}</key><string>${{ steps.install_provisioning_profile.outputs.profile_name }}</string>
             </dict>
             <key>compileBitcode</key><false/>
             <key>stripSwiftSymbols</key><true/>
@@ -150,6 +151,17 @@ jobs:
           cd ..
           mkdir -p out
           (cd work && zip -qry "../out/Runner-signed.ipa" Payload)
+
+      - name: Verify IPA exists
+        if: inputs.upload == 'true'
+        run: |
+          set -e
+          ls -lh out || true
+          COUNT=$(ls -1 out/*.ipa 2>/dev/null | wc -l | xargs)
+          if [ "$COUNT" = "0" ]; then
+            echo "No IPA found in ./out. Check xcodebuild-export.log above for export errors (e.g., provisioningProfiles name mismatch)." >&2
+            exit 1
+          fi
 
       - name: Upload to TestFlight (API key)
         if: inputs.upload == 'true'
