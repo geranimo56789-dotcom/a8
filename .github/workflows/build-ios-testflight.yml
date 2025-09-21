@@ -45,12 +45,22 @@ env:
 jobs:
   build-sign-upload:
     name: Build signed IPA and upload to TestFlight
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 75
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16'
+
+      - name: Xcode diagnostics
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
 
       - name: Compute auth flags
         id: auth
