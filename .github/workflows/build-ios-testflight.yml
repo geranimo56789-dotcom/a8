@@ -257,9 +257,9 @@ jobs:
           SIGN_ARGS=()
           if [ "${USE_API}" = "true" ]; then
             # Force Distribution identity to avoid Xcode drifting to Development during archive
+            # Use Automatic signing and let Xcode select the correct identities/profiles.
+            # Do NOT force CODE_SIGN_IDENTITY globally, as it conflicts with CocoaPods targets.
             SIGN_ARGS+=(CODE_SIGN_STYLE=Automatic)
-            SIGN_ARGS+=(CODE_SIGN_IDENTITY=Apple\ Distribution)
-            SIGN_ARGS+=(PROVISIONING_PROFILE_SPECIFIER=)
             # If keychain path is available from import-certs, pass it explicitly (defensive)
             if [ -n "${{ steps.import-certs.outputs.keychain-path }}" ]; then
               SIGN_ARGS+=(OTHER_CODE_SIGN_FLAGS="--keychain ${{ steps.import-certs.outputs.keychain-path }}")
