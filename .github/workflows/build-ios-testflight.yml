@@ -199,8 +199,8 @@ jobs:
           fi
           SIGN_ARGS=()
           if [ "${HAS_API}" = "true" ]; then
-            # Use Automatic signing and let Xcode select the correct identity for archive
-            SIGN_ARGS+=(CODE_SIGN_STYLE=Automatic)
+            # Use Automatic signing, but explicitly require Distribution identity for Release archive
+            SIGN_ARGS+=(CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Distribution")
           else
             SIGN_ARGS+=(CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER='${{ steps.profile.outputs.name }}')
           fi
