@@ -121,9 +121,10 @@ jobs:
             codesign -f -s "Apple Distribution" --keychain build.keychain "$F"
           done
           codesign -f -s "Apple Distribution" --entitlements entitlements.plist --keychain build.keychain "$APP"
+          # Ensure Payload is at the top level of the IPA by zipping from inside 'work'
+          mkdir -p ../out
+          zip -qry "../out/Runner-signed.ipa" Payload
           cd ..
-          mkdir -p out
-          zip -qry "out/Runner-signed.ipa" work/Payload
 
       - name: Re-sign unsigned IPA (fallback)
         if: hashFiles('Runner.xcarchive/Info.plist') == '' && hashFiles('Runner-unsigned.ipa') != ''
@@ -139,9 +140,20 @@ jobs:
             codesign -f -s "Apple Distribution" --keychain build.keychain "$F"
           done
           codesign -f -s "Apple Distribution" --entitlements entitlements.plist --keychain build.keychain "$APP"
+          # Ensure Payload is at the top level of the IPA by zipping from inside 'work'
+          mkdir -p ../out
+          zip -qry "../out/Runner-signed.ipa" Payload
           cd ..
-          mkdir -p out
-          zip -qry "out/Runner-signed.ipa" work/Payload
+
+      - name: Sanity-check IPA structure
+        if: hashFiles('out/*.ipa') != ''
+        run: |
+          set -e
+          echo "Listing top-level of IPA to confirm Payload/ is at root..."
+          mkdir -p ipa_check
+          ditto -x -k out/*.ipa ipa_check
+          /bin/ls -la ipa_check | sed -n '1,200p'
+          # Should show 'Payload' directory here
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
