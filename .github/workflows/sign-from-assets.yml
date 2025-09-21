@@ -153,3 +153,21 @@ jobs:
             profile.plist
             exportOptions.plist
           if-no-files-found: warn
+
+      - name: Upload to TestFlight (optional)
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          set -e
+          if [ -z "$(ls -1 out/*.ipa 2>/dev/null | head -n1)" ]; then
+            echo "No IPA in out/. Skipping TestFlight upload."; exit 0; fi
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_PRIVATE_KEY" ]; then
+            echo "APPSTORE_* secrets not set. Skipping TestFlight upload."; exit 0; fi
+          IPA_PATH=$(ls out/*.ipa | head -n 1)
+          echo "Uploading $IPA_PATH to TestFlight via API key $ASC_KEY_ID"
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          echo "$ASC_PRIVATE_KEY" > "$KEY_PATH"
+          xcrun iTMSTransporter -m upload -assetFile "$IPA_PATH" -apiKey "$ASC_KEY_ID" -apiIssuer "$ASC_ISSUER_ID" -v informational
