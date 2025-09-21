@@ -152,22 +152,25 @@ jobs:
           mkdir -p out
           (cd work && zip -qry "../out/Runner-signed.ipa" Payload)
 
-      - name: Verify IPA exists
+      - name: Discover IPA path
         if: inputs.upload == 'true'
+        id: discover_ipa
         run: |
           set -e
           ls -lh out || true
-          COUNT=$(ls -1 out/*.ipa 2>/dev/null | wc -l | xargs)
-          if [ "$COUNT" = "0" ]; then
+          IPA=$(ls -1 out/*.ipa 2>/dev/null | head -n 1 || true)
+          if [ -z "$IPA" ]; then
             echo "No IPA found in ./out. Check xcodebuild-export.log above for export errors (e.g., provisioningProfiles name mismatch)." >&2
             exit 1
           fi
+          echo "Found IPA: $IPA"
+          echo "ipa=$IPA" >> $GITHUB_OUTPUT
 
       - name: Upload to TestFlight (API key)
         if: inputs.upload == 'true'
         uses: apple-actions/upload-testflight-build@v1
         with:
-          app-path: out/*.ipa
+          app-path: ${{ steps.discover_ipa.outputs.ipa }}
           issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
           api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
