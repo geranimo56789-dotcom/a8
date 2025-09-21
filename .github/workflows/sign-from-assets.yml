@@ -116,7 +116,7 @@ jobs:
           APP="Payload/Runner.app"
           cp ../profile.mobileprovision "$APP/embedded.mobileprovision"
           security cms -D -i ../profile.mobileprovision > profile.plist
-          /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' entitlements.plist profile.plist
+          /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' profile.plist > entitlements.plist
           find "$APP/Frameworks" -maxdepth 2 \( -name "*.framework" -or -name "*.dylib" \) -print0 | while IFS= read -r -d '' F; do
             codesign -f -s "Apple Distribution" --keychain build.keychain "$F"
           done
