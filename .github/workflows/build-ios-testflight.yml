@@ -267,9 +267,12 @@ jobs:
               SIGN_ARGS+=(OTHER_CODE_SIGN_FLAGS="--keychain ${{ steps.import-certs.outputs.keychain-path }}")
             fi
           else
-            # Manual signing for the app target; DO NOT pass PROVISIONING_PROFILE_SPECIFIER here as it applies to all targets (Pods don't support profiles)
-            # Let exportOptions.plist provide the provisioning profile mapping
-            SIGN_ARGS+=(CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution")
+            # Manual signing for the app target.
+            # Pods have signing disabled in Podfile, so it's safe to provide the profile specifier globally here.
+            # Use the UUID (preferred) if available, otherwise fall back to profile Name.
+            PROFILE_SPECIFIER="${{ steps.profile.outputs.uuid }}"
+            if [ -z "$PROFILE_SPECIFIER" ]; then PROFILE_SPECIFIER="${{ steps.profile.outputs.name }}"; fi
+            SIGN_ARGS+=(CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution" PROVISIONING_PROFILE_SPECIFIER="$PROFILE_SPECIFIER")
           fi
           # Build the command with safe array expansions (avoid unbound errors under set -u)
           echo "xcodebuild command (sanitized): xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release -destination 'generic/platform=iOS' -archivePath build/ios/archive/Runner.xcarchive DEVELOPMENT_TEAM=${IOS_DEVELOPMENT_TEAM} PRODUCT_BUNDLE_IDENTIFIER=${IOS_BUNDLE_ID} CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES ${SIGN_ARGS[@]+${SIGN_ARGS[@]}} clean archive ${AUTH_ARGS[@]+${AUTH_ARGS[@]}}"
