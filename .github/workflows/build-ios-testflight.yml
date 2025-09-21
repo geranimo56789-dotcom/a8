@@ -14,7 +14,7 @@ on:
       signing_mode:
         description: Signing mode (auto uses App Store Connect API key if provided; manual uses provisioning profile secret)
         required: false
-        default: 'auto'
+        default: 'manual'
       flavor:
         description: Flutter flavor (optional)
         required: false
@@ -154,7 +154,8 @@ jobs:
           fi
 
       - name: Write App Store Connect API key to file
-        if: steps.auth.outputs.use_api == 'true'
+        # Needed for -allowProvisioningUpdates (auto signing) or for potential future steps; harmless if unused
+        if: steps.auth.outputs.has_api == 'true'
         # Needed for -allowProvisioningUpdates and TestFlight upload when using API key
         env:
           APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
@@ -259,15 +260,17 @@ jobs:
             # Force Distribution identity to avoid Xcode drifting to Development during archive
             # Use Automatic signing and let Xcode select the correct identities/profiles.
             # Do NOT force CODE_SIGN_IDENTITY globally, as it conflicts with CocoaPods targets.
-            SIGN_ARGS+=(CODE_SIGN_STYLE=Automatic)
+            # Explicitly clear CODE_SIGN_IDENTITY to avoid any lingering manual identity overriding Automatic signing.
+            SIGN_ARGS+=(CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="")
             # If keychain path is available from import-certs, pass it explicitly (defensive)
             if [ -n "${{ steps.import-certs.outputs.keychain-path }}" ]; then
               SIGN_ARGS+=(OTHER_CODE_SIGN_FLAGS="--keychain ${{ steps.import-certs.outputs.keychain-path }}")
             fi
           else
-            SIGN_ARGS+=(CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER='${{ steps.profile.outputs.name }}')
+            SIGN_ARGS+=(CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER='${{ steps.profile.outputs.name }}' CODE_SIGN_IDENTITY="Apple Distribution")
           fi
-          echo "xcodebuild command (sanitized): xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release -destination 'generic/platform=iOS' -archivePath build/ios/archive/Runner.xcarchive DEVELOPMENT_TEAM=${IOS_DEVELOPMENT_TEAM} PRODUCT_BUNDLE_IDENTIFIER=${IOS_BUNDLE_ID} CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES ${SIGN_ARGS[*]} clean archive ${AUTH_ARGS[*]}"
+          # Build the command with safe array expansions (avoid unbound errors under set -u)
+          echo "xcodebuild command (sanitized): xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release -destination 'generic/platform=iOS' -archivePath build/ios/archive/Runner.xcarchive DEVELOPMENT_TEAM=${IOS_DEVELOPMENT_TEAM} PRODUCT_BUNDLE_IDENTIFIER=${IOS_BUNDLE_ID} CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES ${SIGN_ARGS[@]+${SIGN_ARGS[@]}} clean archive ${AUTH_ARGS[@]+${AUTH_ARGS[@]}}"
           xcodebuild \
             -workspace ios/Runner.xcworkspace \
             -scheme Runner \
@@ -277,9 +280,9 @@ jobs:
             DEVELOPMENT_TEAM=${IOS_DEVELOPMENT_TEAM} \
             PRODUCT_BUNDLE_IDENTIFIER=${IOS_BUNDLE_ID} \
             CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES \
-            "${SIGN_ARGS[@]}" \
+            ${SIGN_ARGS[@]+"${SIGN_ARGS[@]}"} \
             clean archive \
-            "${AUTH_ARGS[@]}" \
+            ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} \
             | tee build/ios/logs/xcodebuild-archive.log
           echo "\nSelected signing identity during archive (detected from build settings):" || true
           xcodebuild -showBuildSettings -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release | grep -E "CODE_SIGN_IDENTITY|CODE_SIGN_STYLE" || true
@@ -356,16 +359,18 @@ jobs:
               -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}"
             )
           fi
+          # Clear CODE_SIGN_IDENTITY when exporting too, to avoid conflicts
           xcodebuild -exportArchive \
             -archivePath build/ios/archive/Runner.xcarchive \
             -exportOptionsPlist exportOptions.plist \
             -exportPath build/ios/ipa \
-            "${AUTH_ARGS[@]}" \
-            "${EXTRA_BUILD_ARGS[@]}" \
+            CODE_SIGN_IDENTITY="" \
+            ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} \
+            ${EXTRA_BUILD_ARGS[@]+"${EXTRA_BUILD_ARGS[@]}"} \
             | tee build/ios/logs/xcodebuild-export.log
 
       - name: Upload to TestFlight (API key)
-        if: steps.auth.outputs.use_api == 'true'
+        if: steps.auth.outputs.has_api == 'true'
         uses: apple-actions/upload-testflight-build@v1
         with:
           app-path: build/ios/ipa/*.ipa
