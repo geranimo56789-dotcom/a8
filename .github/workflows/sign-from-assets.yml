@@ -58,11 +58,12 @@ jobs:
           if [ ! -f Runner.xcarchive.zip ] && [ ! -f Runner-unsigned.ipa ]; then
             echo "No inputs found. Upload Runner.xcarchive.zip or Runner-unsigned.ipa to release 'signing-inputs'."; exit 1; fi
           if [ -f Runner.xcarchive.zip ]; then
-            # Unzip may warn/fail for Windows-created zips (backslashes). Don't fail the job; we will fallback to IPA if needed.
-            unzip -q Runner.xcarchive.zip -d . || {
-              echo "Unzip failed or produced warnings; continuing (will fallback to IPA if archive not detected).";
-              true;
-            }
+            # Prefer ditto which is more tolerant; fallback to unzip. Do not fail job here.
+            if command -v ditto >/dev/null 2>&1; then
+              ditto -x -k Runner.xcarchive.zip . || true
+            else
+              unzip -q Runner.xcarchive.zip -d . || true
+            fi
           fi
 
       - name: Extract profile metadata
@@ -75,8 +76,9 @@ jobs:
 
       - name: Export signed IPA from .xcarchive (preferred)
         if: hashFiles('Runner.xcarchive/Info.plist') != ''
+        id: export
         run: |
-          set -e
+          set +e
           cat > exportOptions.plist <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -97,6 +99,31 @@ jobs:
             -archivePath "Runner.xcarchive" \
             -exportOptionsPlist exportOptions.plist \
             -exportPath out | tee xcodebuild-export.log
+          CODE=$?
+          set -e
+          echo "exit_code=$CODE" >> $GITHUB_OUTPUT
+          if [ $CODE -ne 0 ]; then
+            echo "xcodebuild export failed with code $CODE (will try IPA fallback if available)" >&2
+          fi
+
+      - name: Fallback to IPA if export missing
+        if: steps.export.outcome == 'success' && hashFiles('out/*.ipa') == '' && hashFiles('Runner-unsigned.ipa') != ''
+        run: |
+          set -e
+          echo "Export did not produce an IPA; attempting re-sign of unsigned IPA..."
+          mkdir -p work && cd work
+          unzip -q ../Runner-unsigned.ipa
+          APP="Payload/Runner.app"
+          cp ../profile.mobileprovision "$APP/embedded.mobileprovision"
+          security cms -D -i ../profile.mobileprovision > profile.plist
+          /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' entitlements.plist profile.plist
+          find "$APP/Frameworks" -maxdepth 2 \( -name "*.framework" -or -name "*.dylib" \) -print0 | while IFS= read -r -d '' F; do
+            codesign -f -s "Apple Distribution" --keychain build.keychain "$F"
+          done
+          codesign -f -s "Apple Distribution" --entitlements entitlements.plist --keychain build.keychain "$APP"
+          cd ..
+          mkdir -p out
+          zip -qry "out/Runner-signed.ipa" work/Payload
 
       - name: Re-sign unsigned IPA (fallback)
         if: hashFiles('Runner.xcarchive/Info.plist') == '' && hashFiles('Runner-unsigned.ipa') != ''
@@ -121,7 +148,6 @@ jobs:
           name: ios-signed-output
           path: |
             out/*.ipa
-            Runner-signed.ipa
             xcodebuild-export.log
             profile.plist
             exportOptions.plist
