@@ -131,6 +131,16 @@ jobs:
           p12-file-base64: ${{ secrets.IOS_CERT_P12_BASE64 }}
           p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
 
+      - name: "Preflight: verify Distribution certificate installed"
+        run: |
+          set -e
+          echo "Listing installed code signing identities (expecting an 'Apple Distribution' identity with private key):"
+          security find-identity -v -p codesigning || true
+          if ! security find-identity -v -p codesigning | grep -q 'Apple Distribution'; then
+            echo "Apple Distribution certificate not found in the keychain.\n\nChecks: \n- Ensure IOS_CERT_P12_BASE64 contains an Apple Distribution .p12 (not Development).\n- Ensure IOS_CERT_PASSWORD matches the .p12 export password.\n- The .p12 must include the private key.\n\nTip: Re-export with Keychain Access > My Certificates > 'Apple Distribution: <Team/Name>' > export as .p12 (include private key)." >&2
+            exit 1
+          fi
+
       - name: Write App Store Connect API key to file
         if: steps.auth.outputs.has_api == 'true'
         # Needed for -allowProvisioningUpdates and TestFlight upload when using API key
@@ -180,7 +190,40 @@ jobs:
           echo "name=$NAME" >> $GITHUB_OUTPUT
           echo "uuid=$UUID" >> $GITHUB_OUTPUT
 
-      - name: Archive (Xcode) with manual signing
+      - name: "Preflight: validate provisioning profile (manual signing only)"
+        if: steps.auth.outputs.has_api != 'true'
+        env:
+          IOS_BUNDLE_ID: ${{ env.IOS_BUNDLE_ID }}
+          IOS_DEVELOPMENT_TEAM: ${{ env.IOS_DEVELOPMENT_TEAM }}
+        run: |
+          set -e
+          if [ ! -f profile.plist ]; then echo "profile.plist missing; previous step should have created it"; exit 1; fi
+          TEAM=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' profile.plist)
+          APPID=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' profile.plist)
+          ENV=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' profile.plist 2>/dev/null || echo '')
+          HAS_DEVICES=0
+          /usr/libexec/PlistBuddy -c 'Print :ProvisionedDevices' profile.plist >/dev/null 2>&1 || HAS_DEVICES=$?
+          echo "Team in profile: $TEAM"
+          echo "Application Identifier in profile: $APPID"
+          if [ "$TEAM" != "$IOS_DEVELOPMENT_TEAM" ]; then
+            echo "Provisioning profile TeamIdentifier ($TEAM) does not match IOS_DEVELOPMENT_TEAM ($IOS_DEVELOPMENT_TEAM)." >&2
+            exit 1
+          fi
+          if [ "$APPID" != "${IOS_DEVELOPMENT_TEAM}.${IOS_BUNDLE_ID}" ]; then
+            echo "Provisioning profile application-identifier ($APPID) does not match expected ${IOS_DEVELOPMENT_TEAM}.${IOS_BUNDLE_ID}." >&2
+            exit 1
+          fi
+          # For App Store profiles, ProvisionedDevices should NOT exist and aps-environment should be 'production' or unset.
+          if [ $HAS_DEVICES -eq 0 ]; then
+            echo "Profile contains ProvisionedDevices -> likely Development/Ad Hoc profile. Use an App Store (Distribution) profile." >&2
+            exit 1
+          fi
+          if [ "$ENV" = "development" ]; then
+            echo "Profile aps-environment is 'development' -> likely Development profile. Use an App Store (Distribution) profile." >&2
+            exit 1
+          fi
+
+      - name: Archive (Xcode)
         env:
           HAS_API: ${{ steps.auth.outputs.has_api }}
         run: |
@@ -199,8 +242,8 @@ jobs:
           fi
           SIGN_ARGS=()
           if [ "${HAS_API}" = "true" ]; then
-            # Use Automatic signing, but explicitly require Distribution identity for Release archive
-            SIGN_ARGS+=(CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Distribution")
+            # Use Automatic signing and let Xcode pick the correct identity (Distribution) during archive
+            SIGN_ARGS+=(CODE_SIGN_STYLE=Automatic)
           else
             SIGN_ARGS+=(CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER='${{ steps.profile.outputs.name }}')
           fi
