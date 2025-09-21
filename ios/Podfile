@@ -39,7 +39,9 @@ end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
-    # Ensure iOS 13.0 minimum across all pods to satisfy plugin constraints.
+    # Apply Flutter post_install first (it may mutate settings)
+    flutter_additional_ios_build_settings(target)
+
     target.build_configurations.each do |config|
       # Align all pods to iOS 14.0 (required for Xcode 16 toolchain stability)
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
@@ -51,17 +53,24 @@ post_install do |installer|
       config.build_settings['CODE_SIGN_IDENTITY'] = ''
       config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
 
-      # Strip unsupported "-G" flags that cause failures with Xcode 16 toolchain
-      %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS].each do |key|
-        val = config.build_settings[key]
+      # Strip unsupported uppercase "-G" flags (and variants like -G0) that cause failures with Xcode 16/clang
+      # Keep lowercase -g (debug info) intact.
+      strip_bad_G = lambda do |val|
         if val.is_a?(String)
-          config.build_settings[key] = val.gsub(/\s-G(\b|\s)/, ' ')
+          # Remove standalone -G or -G<number> tokens
+          val = val.gsub(/(^|\s)-G\d*(?=\s|$)/, ' ')
+          # Collapse multiple spaces
+          val.gsub(/\s+/, ' ').strip
         elsif val.is_a?(Array)
-          config.build_settings[key] = val.reject { |e| e.to_s.strip == '-G' }
+          val.reject { |e| e.to_s.strip.match?(/^-(?:G\d*)$/) }
+        else
+          val
         end
       end
+
+      %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_LDFLAGS OTHER_SWIFT_FLAGS].each do |key|
+        config.build_settings[key] = strip_bad_G.call(config.build_settings[key])
+      end
     end
-    # Apply Flutter post_install settings per target.
-    flutter_additional_ios_build_settings(target)
   end
 end
