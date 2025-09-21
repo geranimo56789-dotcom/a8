@@ -57,7 +57,13 @@ jobs:
           gh release download signing-inputs -p "Runner-unsigned.ipa" -O Runner-unsigned.ipa || true
           if [ ! -f Runner.xcarchive.zip ] && [ ! -f Runner-unsigned.ipa ]; then
             echo "No inputs found. Upload Runner.xcarchive.zip or Runner-unsigned.ipa to release 'signing-inputs'."; exit 1; fi
-          if [ -f Runner.xcarchive.zip ]; then unzip -q Runner.xcarchive.zip -d .; fi
+          if [ -f Runner.xcarchive.zip ]; then
+            # Unzip may warn/fail for Windows-created zips (backslashes). Don't fail the job; we will fallback to IPA if needed.
+            unzip -q Runner.xcarchive.zip -d . || {
+              echo "Unzip failed or produced warnings; continuing (will fallback to IPA if archive not detected).";
+              true;
+            }
+          fi
 
       - name: Extract profile metadata
         id: prof
