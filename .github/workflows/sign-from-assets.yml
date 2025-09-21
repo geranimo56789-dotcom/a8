@@ -1,0 +1,122 @@
+name: Sign iOS from assets (archive or unsigned IPA)
+
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: Bundle ID
+        required: false
+        default: nodomain.var6
+      team_id:
+        description: Team ID
+        required: false
+        default: K68A6FQABT
+
+permissions:
+  contents: read
+
+jobs:
+  sign:
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare keychain and cert
+        env:
+          P12_B64: ${{ secrets.IOS_CERT_P12_BASE64 }}
+          P12_PWD: ${{ secrets.IOS_CERT_PASSWORD }}
+        run: |
+          set -e
+          if [ -z "$P12_B64" ] || [ -z "$P12_PWD" ]; then echo "Missing IOS_CERT_P12_BASE64/IOS_CERT_PASSWORD secrets"; exit 1; fi
+          echo "$P12_B64" | base64 -d > cert.p12
+          security create-keychain -p temp build.keychain
+          security import cert.p12 -k build.keychain -P "$P12_PWD" -T /usr/bin/codesign
+          security list-keychains -s build.keychain $(security list-keychains | tr -d '",')
+          security default-keychain -s build.keychain
+          security unlock-keychain -p temp build.keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k temp build.keychain
+
+      - name: Install provisioning profile
+        env:
+          PROF_B64: ${{ secrets.IOS_MOBILEPROVISION_BASE64 }}
+        run: |
+          set -e
+          if [ -z "$PROF_B64" ]; then echo "Missing IOS_MOBILEPROVISION_BASE64 secret"; exit 1; fi
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "$PROF_B64" | base64 -d > profile.mobileprovision
+          cp profile.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/"
+
+      - name: Download unsigned inputs from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh release download signing-inputs -p "Runner.xcarchive.zip" -O Runner.xcarchive.zip || true
+          gh release download signing-inputs -p "Runner-unsigned.ipa" -O Runner-unsigned.ipa || true
+          if [ ! -f Runner.xcarchive.zip ] && [ ! -f Runner-unsigned.ipa ]; then
+            echo "No inputs found. Upload Runner.xcarchive.zip or Runner-unsigned.ipa to release 'signing-inputs'."; exit 1; fi
+          if [ -f Runner.xcarchive.zip ]; then unzip -q Runner.xcarchive.zip -d .; fi
+
+      - name: Extract profile metadata
+        id: prof
+        run: |
+          set -e
+          security cms -D -i profile.mobileprovision > profile.plist
+          NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' profile.plist)
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+
+      - name: Export signed IPA from .xcarchive (preferred)
+        if: hashFiles('Runner.xcarchive/Info.plist') != ''
+        run: |
+          set -e
+          cat > exportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store</string>
+            <key>teamID</key><string>${{ inputs.team_id || vars.IOS_DEVELOPMENT_TEAM }}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key><dict>
+              <key>${{ inputs.bundle_id || vars.IOS_BUNDLE_ID }}</key><string>${{ steps.prof.outputs.name }}</string>
+            </dict>
+            <key>compileBitcode</key><false/>
+            <key>stripSwiftSymbols</key><true/>
+            <key>destination</key><string>export</string>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath "Runner.xcarchive" \
+            -exportOptionsPlist exportOptions.plist \
+            -exportPath out | tee xcodebuild-export.log
+
+      - name: Re-sign unsigned IPA (fallback)
+        if: hashFiles('Runner.xcarchive/Info.plist') == '' && hashFiles('Runner-unsigned.ipa') != ''
+        run: |
+          set -e
+          mkdir -p work && cd work
+          unzip -q ../Runner-unsigned.ipa
+          APP="Payload/Runner.app"
+          cp ../profile.mobileprovision "$APP/embedded.mobileprovision"
+          security cms -D -i ../profile.mobileprovision > profile.plist
+          /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' entitlements.plist profile.plist
+          find "$APP/Frameworks" -maxdepth 2 \( -name "*.framework" -or -name "*.dylib" \) -print0 | while IFS= read -r -d '' F; do
+            codesign -f -s "Apple Distribution" --keychain build.keychain "$F"
+          done
+          codesign -f -s "Apple Distribution" --entitlements entitlements.plist --keychain build.keychain "$APP"
+          cd ..
+          zip -qry "Runner-signed.ipa" work/Payload
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-signed-output
+          path: |
+            out/*.ipa
+            Runner-signed.ipa
+            xcodebuild-export.log
+            profile.plist
+            exportOptions.plist
+          if-no-files-found: warn
