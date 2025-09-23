@@ -25,6 +25,15 @@ jobs:
         with:
           xcode-version: '16.4'
 
+      - name: Accept Xcode license and show tool versions
+        run: |
+          set -euo pipefail
+          sudo xcodebuild -license accept
+          xcodebuild -version
+          xcrun --version || true
+          which iTMSTransporter || true
+          xcrun iTMSTransporter -version || true
+
       - name: Download IPA from release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,17 +76,23 @@ jobs:
             echo "API key not configured; skipping this step."
           fi
 
-      - name: Upload via Apple ID (app-specific password)
+      - name: Upload via Apple ID with Fastlane (no .p8)
         if: always()
+        env:
+          FASTLANE_USER: ${{ secrets.APPLE_ID_EMAIL }}
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
         run: |
           set -euo pipefail
-          if [[ -z "${UPLOAD_DONE:-}" && -n "${APPLE_ID_EMAIL}" && -n "${APPLE_APP_SPECIFIC_PASSWORD}" ]]; then
-            ARGS=( -m upload -assetFile "${{ inputs.asset_name }}" -username "$APPLE_ID_EMAIL" -password "$APPLE_APP_SPECIFIC_PASSWORD" -v informational )
-            if [[ -n "${{ inputs.itc_provider }}" ]]; then ARGS+=( -itc_provider "${{ inputs.itc_provider }}" ); fi
-            xcrun iTMSTransporter "${ARGS[@]}"
+          if [[ -z "${UPLOAD_DONE:-}" && -n "${FASTLANE_USER}" && -n "${FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD}" ]]; then
+            echo "Installing fastlane..."
+            sudo gem install fastlane --no-document
+            echo "Fastlane version: $(fastlane --version)"
+            PILOT_ARGS=( upload --ipa "${{ inputs.asset_name }}" --skip_waiting_for_build_processing true )
+            if [[ -n "${{ inputs.itc_provider }}" ]]; then PILOT_ARGS+=( --itc_provider "${{ inputs.itc_provider }}" ); fi
+            fastlane pilot "${PILOT_ARGS[@]}"
             echo "UPLOAD_DONE=true" >> $GITHUB_ENV
           else
-            echo "Apple ID creds not configured or upload already succeeded; skipping this step."
+            echo "Apple ID app-specific password not configured or upload already succeeded; skipping Fastlane path."
           fi
 
       - name: Fail if no upload occurred
