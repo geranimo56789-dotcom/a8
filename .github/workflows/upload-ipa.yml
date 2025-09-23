@@ -31,8 +31,16 @@ jobs:
           sudo xcodebuild -license accept
           xcodebuild -version
           xcrun --version || true
-          which iTMSTransporter || true
-          xcrun iTMSTransporter -version || true
+          echo "ITMS path: $MD_APPLE_SDK_ROOT/Contents/SharedFrameworks/ContentDeliveryServices.framework/Versions/A/itms/bin/iTMSTransporter"
+
+      - name: Ensure Java is available
+        run: |
+          set -euo pipefail
+          if ! command -v java >/dev/null 2>&1; then
+            brew update
+            brew install --cask temurin
+          fi
+          java -version
 
       - name: Download IPA from release
         env:
@@ -50,7 +58,8 @@ jobs:
           APPSTORE_PRIVATE_KEY='${{ secrets.APPSTORE_PRIVATE_KEY }}'
           APPSTORE_KEY_ID='${{ secrets.APPSTORE_KEY_ID }}'
           APPSTORE_ISSUER_ID='${{ secrets.APPSTORE_ISSUER_ID }}'
-          if [[ -n "$APPSTORE_PRIVATE_KEY" && -n "$APPSTORE_KEY_ID" && -n "$APPSTORE_ISSUER_ID" ]]; then
+          # Consider API key present only if private key seems non-empty
+          if [[ ${#APPSTORE_PRIVATE_KEY} -gt 20 && -n "$APPSTORE_KEY_ID" && -n "$APPSTORE_ISSUER_ID" ]]; then
             USE_API_KEY=true
             mkdir -p ~/.appstoreconnect/private_keys
             echo "$APPSTORE_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
@@ -59,6 +68,14 @@ jobs:
           # Also export Apple ID vars for later use
           echo "APPLE_ID_EMAIL=${{ secrets.APPLE_ID_EMAIL }}" >> $GITHUB_ENV
           echo "APPLE_APP_SPECIFIC_PASSWORD=${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}" >> $GITHUB_ENV
+          # Export transporter path
+          echo "ITMS=$MD_APPLE_SDK_ROOT/Contents/SharedFrameworks/ContentDeliveryServices.framework/Versions/A/itms/bin/iTMSTransporter" >> $GITHUB_ENV
+
+      - name: Sanity check iTMSTransporter
+        run: |
+          set -euo pipefail
+          test -x "$ITMS"
+          "$ITMS" -version || true
 
       - name: Upload via API Key (preferred)
         continue-on-error: true
@@ -70,29 +87,23 @@ jobs:
           if [[ "${USE_API_KEY}" == "true" ]]; then
             ARGS=( -m upload -assetFile "${{ inputs.asset_name }}" -apiKey "$KEY_ID" -apiIssuer "$ISSUER" -v informational )
             if [[ -n "${{ inputs.itc_provider }}" ]]; then ARGS+=( -itc_provider "${{ inputs.itc_provider }}" ); fi
-            xcrun iTMSTransporter "${ARGS[@]}"
+            "$ITMS" "${ARGS[@]}"
             echo "UPLOAD_DONE=true" >> $GITHUB_ENV
           else
             echo "API key not configured; skipping this step."
           fi
 
-      - name: Upload via Apple ID with Fastlane (no .p8)
+      - name: Upload via Apple ID (app-specific password, transporter)
         if: always()
-        env:
-          FASTLANE_USER: ${{ secrets.APPLE_ID_EMAIL }}
-          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
         run: |
           set -euo pipefail
-          if [[ -z "${UPLOAD_DONE:-}" && -n "${FASTLANE_USER}" && -n "${FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD}" ]]; then
-            echo "Installing fastlane..."
-            sudo gem install fastlane --no-document
-            echo "Fastlane version: $(fastlane --version)"
-            PILOT_ARGS=( upload --ipa "${{ inputs.asset_name }}" --skip_waiting_for_build_processing true )
-            if [[ -n "${{ inputs.itc_provider }}" ]]; then PILOT_ARGS+=( --itc_provider "${{ inputs.itc_provider }}" ); fi
-            fastlane pilot "${PILOT_ARGS[@]}"
+          if [[ -z "${UPLOAD_DONE:-}" && -n "${APPLE_ID_EMAIL}" && -n "${APPLE_APP_SPECIFIC_PASSWORD}" ]]; then
+            ARGS=( -m upload -assetFile "${{ inputs.asset_name }}" -username "$APPLE_ID_EMAIL" -password "$APPLE_APP_SPECIFIC_PASSWORD" -v informational )
+            if [[ -n "${{ inputs.itc_provider }}" ]]; then ARGS+=( -itc_provider "${{ inputs.itc_provider }}" ); fi
+            "$ITMS" "${ARGS[@]}"
             echo "UPLOAD_DONE=true" >> $GITHUB_ENV
           else
-            echo "Apple ID app-specific password not configured or upload already succeeded; skipping Fastlane path."
+            echo "Apple ID creds not configured or upload already succeeded; skipping this step."
           fi
 
       - name: Fail if no upload occurred
