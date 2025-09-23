@@ -52,6 +52,7 @@ jobs:
           echo "APPLE_APP_SPECIFIC_PASSWORD=${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}" >> $GITHUB_ENV
 
       - name: Upload via API Key (preferred)
+        continue-on-error: true
         env:
           KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
@@ -67,6 +68,7 @@ jobs:
           fi
 
       - name: Upload via Apple ID (app-specific password)
+        if: always()
         run: |
           set -euo pipefail
           if [[ "${USE_API_KEY}" != "true" && -n "${APPLE_ID_EMAIL}" && -n "${APPLE_APP_SPECIFIC_PASSWORD}" ]]; then
@@ -79,6 +81,7 @@ jobs:
           fi
 
       - name: Fail if no upload occurred
+        if: always()
         run: |
           if [[ "${UPLOAD_DONE:-}" != "true" ]]; then
             echo "No upload performed. Configure either API key (APPSTORE_PRIVATE_KEY/KEY_ID/ISSUER_ID) or Apple ID app-specific password (APPLE_ID_EMAIL/APPLE_APP_SPECIFIC_PASSWORD)." 1>&2
