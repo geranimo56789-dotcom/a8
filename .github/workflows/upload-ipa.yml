@@ -71,13 +71,13 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          if [[ "${USE_API_KEY}" != "true" && -n "${APPLE_ID_EMAIL}" && -n "${APPLE_APP_SPECIFIC_PASSWORD}" ]]; then
+          if [[ -z "${UPLOAD_DONE:-}" && -n "${APPLE_ID_EMAIL}" && -n "${APPLE_APP_SPECIFIC_PASSWORD}" ]]; then
             ARGS=( -m upload -assetFile "${{ inputs.asset_name }}" -username "$APPLE_ID_EMAIL" -password "$APPLE_APP_SPECIFIC_PASSWORD" -v informational )
             if [[ -n "${{ inputs.itc_provider }}" ]]; then ARGS+=( -itc_provider "${{ inputs.itc_provider }}" ); fi
             xcrun iTMSTransporter "${ARGS[@]}"
             echo "UPLOAD_DONE=true" >> $GITHUB_ENV
           else
-            echo "Apple ID creds not configured or API key used; skipping this step."
+            echo "Apple ID creds not configured or upload already succeeded; skipping this step."
           fi
 
       - name: Fail if no upload occurred
