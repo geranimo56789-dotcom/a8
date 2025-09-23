@@ -31,7 +31,6 @@ jobs:
           sudo xcodebuild -license accept
           xcodebuild -version
           xcrun --version || true
-          echo "ITMS path: $MD_APPLE_SDK_ROOT/Contents/SharedFrameworks/ContentDeliveryServices.framework/Versions/A/itms/bin/iTMSTransporter"
 
       - name: Ensure Java is available
         run: |
@@ -50,7 +49,7 @@ jobs:
           gh release download "${{ inputs.release_tag }}" -p "${{ inputs.asset_name }}" -O "${{ inputs.asset_name }}"
           ls -la
 
-      - name: Prepare credentials env
+      - name: Prepare credentials env and locate transporter
         run: |
           set -euo pipefail
           # Save flags to detect which path is available
@@ -68,8 +67,15 @@ jobs:
           # Also export Apple ID vars for later use
           echo "APPLE_ID_EMAIL=${{ secrets.APPLE_ID_EMAIL }}" >> $GITHUB_ENV
           echo "APPLE_APP_SPECIFIC_PASSWORD=${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}" >> $GITHUB_ENV
-          # Export transporter path
-          echo "ITMS=$MD_APPLE_SDK_ROOT/Contents/SharedFrameworks/ContentDeliveryServices.framework/Versions/A/itms/bin/iTMSTransporter" >> $GITHUB_ENV
+          # Locate iTMSTransporter dynamically within the selected Xcode bundle
+          ITMS=$( /usr/bin/find "$MD_APPLE_SDK_ROOT" -type f -name iTMSTransporter | head -n 1 || true )
+          if [[ -z "$ITMS" ]]; then
+            echo "Could not locate iTMSTransporter under $MD_APPLE_SDK_ROOT" 1>&2
+            exit 1
+          fi
+          chmod +x "$ITMS" || true
+          echo "ITMS=$ITMS" >> $GITHUB_ENV
+          echo "Using iTMSTransporter at: $ITMS"
 
       - name: Sanity check iTMSTransporter
         run: |
