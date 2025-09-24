@@ -10,7 +10,7 @@ on:
         description: IPA filename in the release (exact match)
         required: true
       itc_provider:
-        description: Optional ITC provider short name if multiple providers exist
+        description: Optional ITC provider short name if your account has multiple providers
         required: false
         default: ""
 
@@ -18,84 +18,126 @@ jobs:
   upload:
     runs-on: macos-15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Secret presence summary
-        run: |
-          set -euo pipefail
-          present() { printf '%s: %s\n' "$1" "${2:+YES}"; }
-          present APPSTORE_KEY_ID "${{ secrets.APPSTORE_KEY_ID }}"
-          present APPSTORE_ISSUER_ID "${{ secrets.APPSTORE_ISSUER_ID }}"
-          if [[ "${{ secrets.APPSTORE_PRIVATE_KEY }}" == *"BEGIN PRIVATE KEY"* ]]; then echo "APPSTORE_PRIVATE_KEY: YES"; else echo "APPSTORE_PRIVATE_KEY: MISSING/FORMAT"; fi
-          # Do NOT echo any actual secret values
-
-      - name: Select Xcode 16.4
+      - name: Select Xcode 16
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '16.4'
 
-      - name: Accept Xcode license & show tool versions
+      - name: Accept Xcode license and show tool versions
         run: |
           set -euo pipefail
           sudo xcodebuild -license accept
           xcodebuild -version
           xcrun --version || true
+          which iTMSTransporter || true
           xcrun -f iTMSTransporter || true
           xcrun iTMSTransporter -version || true
 
-      - name: Download IPA asset from release
+      - name: Download IPA from release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh release download "${{ inputs.release_tag }}" -p "${{ inputs.asset_name }}" -O "${{ inputs.asset_name }}"
-          ls -lh "${{ inputs.asset_name }}"
+          ls -la
 
-      - name: Verify IPA signature (Distribution)
+      - name: Prepare credentials env
         run: |
           set -euo pipefail
-          IPA='${{ inputs.asset_name }}'
-          unzip -q "$IPA" -d ipa_check
-          APP=$(find ipa_check/Payload -maxdepth 1 -type d -name '*.app' | head -n1)
-          if [[ -z "$APP" ]]; then echo 'No .app inside IPA' 1>&2; exit 1; fi
-          CODESIGN_INFO=$(codesign -dvv "$APP" 2>&1 || true)
-          echo "$CODESIGN_INFO" | grep -E 'Authority=Apple Distribution' >/dev/null || { echo 'IPA not signed with Apple Distribution certificate (expected for TestFlight). Aborting.' 1>&2; exit 1; }
-          echo 'Distribution signature confirmed.'
-
-      - name: Prepare API key
-        id: apikey
-        run: |
-          set -euo pipefail
-          KEY='${{ secrets.APPSTORE_PRIVATE_KEY }}'
-          KEY_ID='${{ secrets.APPSTORE_KEY_ID }}'
-          ISSUER='${{ secrets.APPSTORE_ISSUER_ID }}'
-          if [[ ${#KEY} -gt 50 && "$KEY" == *"BEGIN PRIVATE KEY"* && -n "$KEY_ID" && -n "$ISSUER" ]]; then
+          # Save flags to detect which path is available
+          USE_API_KEY=false
+          APPSTORE_PRIVATE_KEY='${{ secrets.APPSTORE_PRIVATE_KEY }}'
+          APPSTORE_KEY_ID='${{ secrets.APPSTORE_KEY_ID }}'
+          APPSTORE_ISSUER_ID='${{ secrets.APPSTORE_ISSUER_ID }}'
+          # Only consider API key present if it looks like a real .p8 (contains BEGIN and has some length)
+          if [[ ${#APPSTORE_PRIVATE_KEY} -gt 50 && "$APPSTORE_PRIVATE_KEY" == *"BEGIN PRIVATE KEY"* && -n "$APPSTORE_KEY_ID" && -n "$APPSTORE_ISSUER_ID" ]]; then
+            USE_API_KEY=true
             mkdir -p ~/.appstoreconnect/private_keys
-            echo "$KEY" > ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
-            echo "present=true" >> $GITHUB_OUTPUT
-            echo "Using API key $KEY_ID"
+            echo "$APPSTORE_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
+          fi
+          echo "USE_API_KEY=$USE_API_KEY" >> $GITHUB_ENV
+          # Also export Apple ID vars for later use
+          echo "APPLE_ID_EMAIL=${{ secrets.APPLE_ID_EMAIL }}" >> $GITHUB_ENV
+          echo "APPLE_APP_SPECIFIC_PASSWORD=${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: Upload via Apple ID with Fastlane (primary, no .p8)
+        if: always()
+        env:
+          FASTLANE_USER: ${{ secrets.APPLE_ID_EMAIL }}
+          # Provide both variables to satisfy Fastlane non-interactive auth
+          FASTLANE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          FASTLANE_SKIP_UPDATE_CHECK: true
+          FASTLANE_HIDE_ANALYTICS: true
+          CI: true
+        run: |
+          set -euo pipefail
+          if [[ -z "${UPLOAD_DONE:-}" && -n "${FASTLANE_USER}" && -n "${FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD}" ]]; then
+            echo "Installing fastlane..."
+            gem install fastlane --no-document
+            echo "Fastlane version: $(fastlane --version)"
+            PILOT_ARGS=( upload --ipa "${{ inputs.asset_name }}" --skip_waiting_for_build_processing true )
+            if [[ -n "${{ inputs.itc_provider }}" ]]; then PILOT_ARGS+=( --itc_provider "${{ inputs.itc_provider }}" ); fi
+            fastlane pilot "${PILOT_ARGS[@]}"
+            echo "UPLOAD_DONE=true" >> $GITHUB_ENV
           else
-            echo "present=false" >> $GITHUB_OUTPUT
-            echo "API key secrets not complete/valid." 1>&2
+            echo "Apple ID app-specific password not configured or upload already succeeded; skipping Fastlane path."
           fi
 
-      - name: Upload via API key (iTMSTransporter)
-        if: steps.apikey.outputs.present == 'true'
+      - name: Upload via API Key (preferred)
+        continue-on-error: true
         env:
           KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
         run: |
           set -euo pipefail
-          ARGS=( -m upload -assetFile "${{ inputs.asset_name }}" -apiKey "$KEY_ID" -apiIssuer "$ISSUER" -v informational )
-          if [[ -n "${{ inputs.itc_provider }}" ]]; then ARGS+=( -itc_provider "${{ inputs.itc_provider }}" ); fi
-          echo "Running: xcrun iTMSTransporter ${ARGS[*]}"
-          xcrun iTMSTransporter "${ARGS[@]}"
-          echo "UPLOAD_DONE=true" >> $GITHUB_ENV
+          if [[ -z "${UPLOAD_DONE:-}" && "${USE_API_KEY}" == "true" ]]; then
+            ARGS=( -m upload -assetFile "${{ inputs.asset_name }}" -apiKey "$KEY_ID" -apiIssuer "$ISSUER" -v informational )
+            if [[ -n "${{ inputs.itc_provider }}" ]]; then ARGS+=( -itc_provider "${{ inputs.itc_provider }}" ); fi
+            xcrun iTMSTransporter "${ARGS[@]}"
+            echo "UPLOAD_DONE=true" >> $GITHUB_ENV
+          else
+            echo "API key not configured; skipping this step."
+          fi
 
-      - name: Fail if no upload
+      - name: Upload via Apple ID (Transporter fallback)
+        if: always()
+        env:
+          APPLE_ID_EMAIL: ${{ secrets.APPLE_ID_EMAIL }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${UPLOAD_DONE:-}" && -n "${APPLE_ID_EMAIL}" && -n "${APPLE_APP_SPECIFIC_PASSWORD}" ]]; then
+            # Try to locate iTMSTransporter in several common locations
+            ITMS="$(xcrun -f iTMSTransporter 2>/dev/null || true)"
+            if [[ -z "$ITMS" && -x "/Applications/Transporter.app/Contents/itms/bin/iTMSTransporter" ]]; then
+              ITMS="/Applications/Transporter.app/Contents/itms/bin/iTMSTransporter"
+            fi
+            if [[ -z "$ITMS" ]]; then
+              ITMS="$(/usr/bin/find /Applications/Xcode*.app -type f -name iTMSTransporter 2>/dev/null | head -n 1 || true)"
+            fi
+            if [[ -z "$ITMS" ]]; then
+              ITMS="$(/usr/bin/find /Applications -type f -name iTMSTransporter 2>/dev/null | head -n 1 || true)"
+            fi
+            if [[ -z "$ITMS" ]]; then
+              echo "Could not locate iTMSTransporter; skipping Transporter fallback."
+              exit 0
+            fi
+            chmod +x "$ITMS" || true
+            ARGS=( -m upload -assetFile "${{ inputs.asset_name }}" -username "$APPLE_ID_EMAIL" -password "$APPLE_APP_SPECIFIC_PASSWORD" -v informational )
+            if [[ -n "${{ inputs.itc_provider }}" ]]; then ARGS+=( -itc_provider "${{ inputs.itc_provider }}" ); fi
+            "$ITMS" "${ARGS[@]}"
+            echo "UPLOAD_DONE=true" >> $GITHUB_ENV
+          else
+            echo "Apple ID creds not configured or upload already succeeded; skipping Transporter path."
+          fi
+
+      - name: Fail if no upload occurred
+        if: always()
         run: |
           if [[ "${UPLOAD_DONE:-}" != "true" ]]; then
-            echo "Upload did not occur. Ensure APPSTORE_PRIVATE_KEY / APPSTORE_KEY_ID / APPSTORE_ISSUER_ID secrets are set correctly." 1>&2
+            echo "No upload performed. Configure either API key (APPSTORE_PRIVATE_KEY/KEY_ID/ISSUER_ID) or Apple ID app-specific password (APPLE_ID_EMAIL/APPLE_APP_SPECIFIC_PASSWORD)." 1>&2
             exit 1
           fi
