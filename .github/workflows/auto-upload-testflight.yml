@@ -1,0 +1,174 @@
+name: Auto Upload TestFlight (on Release)
+
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: auto-upload-testflight-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Upload IPA from Release Assets
+    runs-on: macos-15
+    steps:
+      - name: Checkout (for potential metadata)
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16.4
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.4'
+
+      - name: Accept Xcode license & diagnostic info
+        run: |
+          set -euo pipefail
+          sudo xcodebuild -license accept
+          echo "Tag: ${{ github.event.release.tag_name }}"
+          xcodebuild -version
+          xcrun -f iTMSTransporter || true
+          xcrun iTMSTransporter -version || true
+
+      - name: Download IPA asset(s)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='${{ github.event.release.tag_name }}'
+          echo "Downloading IPA assets for release $TAG"
+          gh release download "$TAG" -p "*.ipa" || true
+          ls -lh || true
+          COUNT=$(ls -1 *.ipa 2>/dev/null | wc -l | tr -d ' ' || echo 0)
+          if [[ "$COUNT" -eq 0 ]]; then
+            echo "No .ipa assets found in release $TAG" 1>&2
+            exit 1
+          fi
+          # Heuristic: prefer *-signed.ipa then Runner-signed.ipa then first ipa
+          TARGET=$(ls -1 *-signed.ipa 2>/dev/null | head -n1 || true)
+          if [[ -z "$TARGET" ]]; then
+            if [[ -f Runner-signed.ipa ]]; then TARGET=Runner-signed.ipa; fi
+          fi
+          if [[ -z "$TARGET" ]]; then
+            TARGET=$(ls -1 *.ipa | head -n1)
+          fi
+          echo "Chosen IPA: $TARGET"
+          echo "IPA_FILE=$TARGET" >> $GITHUB_ENV
+
+      - name: Verify IPA signature (Distribution)
+        run: |
+          set -euo pipefail
+          IPA="$IPA_FILE"
+          unzip -q "$IPA" -d ipa_check
+          APP=$(find ipa_check/Payload -maxdepth 1 -type d -name '*.app' | head -n1)
+          if [[ -z "$APP" ]]; then echo 'No .app inside IPA' 1>&2; exit 1; fi
+          CODESIGN_INFO=$(codesign -dvv "$APP" 2>&1 || true)
+          echo "$CODESIGN_INFO" | grep -E 'Authority=Apple Distribution' >/dev/null || { echo 'IPA not signed with Apple Distribution certificate (expected for TestFlight). Aborting.' 1>&2; exit 1; }
+          echo 'Distribution signature confirmed.'
+
+      - name: Prepare App Store Connect API key
+        id: apikey
+        run: |
+          set -euo pipefail
+          KEY='${{ secrets.APPSTORE_PRIVATE_KEY }}'
+          KEY_ID='${{ secrets.APPSTORE_KEY_ID }}'
+          ISSUER='${{ secrets.APPSTORE_ISSUER_ID }}'
+          if [[ ${#KEY} -gt 50 && "$KEY" == *"BEGIN PRIVATE KEY"* && -n "$KEY_ID" && -n "$ISSUER" ]]; then
+            mkdir -p ~/.appstoreconnect/private_keys
+            echo "$KEY" > ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
+            chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8 || true
+            echo "present=true" >> $GITHUB_OUTPUT
+            echo "Using API key $KEY_ID"
+          else
+            echo "present=false" >> $GITHUB_OUTPUT
+            echo "API key secrets invalid or incomplete" 1>&2
+          fi
+
+      - name: Upload via iTMSTransporter
+        if: steps.apikey.outputs.present == 'true'
+        env:
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
+          ITC_PROVIDER: ${{ secrets.APPSTORE_ITC_PROVIDER }}
+        run: |
+          set -euo pipefail
+          IPA="$IPA_FILE"
+          if [[ ! -f "$IPA" ]]; then
+            echo "IPA file $IPA missing" 1>&2
+            exit 1
+          fi
+            # Build arguments
+          ARGS=( -m upload -assetFile "$IPA" -apiKey "$KEY_ID" -apiIssuer "$ISSUER" -v informational )
+          if [[ -n "$ITC_PROVIDER" ]]; then ARGS+=( -itc_provider "$ITC_PROVIDER" ); fi
+          echo "xcrun iTMSTransporter ${ARGS[*]}"
+          # Capture log
+          set +e
+          xcrun iTMSTransporter "${ARGS[@]}" 2>&1 | tee transporter.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+          if [[ $EXIT_CODE -ne 0 ]]; then
+            echo "Transporter failed with exit code $EXIT_CODE" 1>&2
+            echo "transporter_exit=$EXIT_CODE" >> $GITHUB_OUTPUT
+            exit $EXIT_CODE
+          fi
+          echo "transporter_exit=0" >> $GITHUB_OUTPUT
+          echo "UPLOAD_DONE=true" >> $GITHUB_ENV
+
+      - name: Upload transporter log artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: transporter-log-${{ github.event.release.tag_name }}
+          path: transporter.log
+          if-no-files-found: ignore
+
+      - name: Generate job summary
+        if: always()
+        run: |
+          {
+            echo "### TestFlight Upload Summary";
+            echo "Release Tag: ${{ github.event.release.tag_name }}";
+            echo "Chosen IPA: $IPA_FILE";
+            if [[ "${UPLOAD_DONE:-}" == "true" ]]; then
+              echo "Status: ✅ Uploaded (Transporter exit 0)";
+            else
+              echo "Status: ❌ Failed";
+            fi
+            echo "Key ID: ${KEY_ID:-hidden}";
+            echo "Log Artifact: transporter-log-${{ github.event.release.tag_name }}";
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Slack notify
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [[ -z "$SLACK_WEBHOOK_URL" ]]; then echo 'No Slack webhook configured'; exit 0; fi
+          STATUS="FAILED"
+          COLOR="#ff4d4f"
+          if [[ "${UPLOAD_DONE:-}" == "true" ]]; then STATUS="SUCCESS"; COLOR="#36a64f"; fi
+          payload=$(cat <<JSON
+          {
+            "attachments": [
+              {
+                "color": "$COLOR",
+                "title": "TestFlight Upload $STATUS",
+                "fields": [
+                  {"title": "Tag", "value": "${{ github.event.release.tag_name }}", "short": true},
+                  {"title": "IPA", "value": "$IPA_FILE", "short": true},
+                  {"title": "Repo", "value": "${{ github.repository }}", "short": true}
+                ]
+              }
+            ]
+          }
+          JSON
+          )
+          curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL" || echo 'Slack post failed'
+
+      - name: Fail if upload not performed
+        run: |
+          if [[ "${UPLOAD_DONE:-}" != "true" ]]; then
+            echo "Upload did not occur. Check API key secrets or Transporter logs above." 1>&2
+            exit 1
+          fi
+          echo "TestFlight upload initiated successfully. Processing may take several minutes in App Store Connect."

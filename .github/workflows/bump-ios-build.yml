@@ -1,0 +1,87 @@
+name: Bump iOS Version / Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'What to bump: patch or build'
+        required: true
+        default: 'build'
+        type: choice
+        options:
+          - build
+          - patch
+      commit:
+        description: 'Commit and push changes (true/false)'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse current version
+        id: parse
+        run: |
+          set -euo pipefail
+          LINE=$(grep '^version:' pubspec.yaml | head -n1)
+          # Expect: version: x.y.z+build
+          VERSION_PART=$(echo "$LINE" | awk '{print $2}')
+          BASE=${VERSION_PART%%+*}
+          BUILD=${VERSION_PART##*+}
+          echo "base=$BASE" >> $GITHUB_OUTPUT
+          echo "build=$BUILD" >> $GITHUB_OUTPUT
+          echo "Current base=$BASE build=$BUILD"
+
+      - name: Compute new version
+        id: compute
+        run: |
+          set -euo pipefail
+          MODE='${{ inputs.mode }}'
+          BASE='${{ steps.parse.outputs.base }}'
+          BUILD='${{ steps.parse.outputs.build }}'
+          IFS='.' read -r MAJ MIN PAT <<< "$BASE"
+          if [[ "$MODE" == 'patch' ]]; then
+            PAT=$((PAT+1))
+            BUILD=1
+          else
+            BUILD=$((BUILD+1))
+          fi
+          NEW_BASE="$MAJ.$MIN.$PAT"
+          NEW_VER="$NEW_BASE+$BUILD"
+          echo "new_base=$NEW_BASE" >> $GITHUB_OUTPUT
+            echo "new_version=$NEW_VER" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VER"
+
+      - name: Update pubspec.yaml
+        run: |
+          set -euo pipefail
+          NEW_VERSION='${{ steps.compute.outputs.new_version }}'
+          awk -v nv="$NEW_VERSION" 'BEGIN{c=0} {if($1=="version:"){print "version: " nv; c=1}else{print}} END{if(c==0){print "version: " nv}}' pubspec.yaml > pubspec.new && mv pubspec.new pubspec.yaml
+          grep '^version:' pubspec.yaml
+
+      - name: Commit & push
+        if: ${{ inputs.commit == 'true' }}
+        run: |
+          set -euo pipefail
+          NEW_VERSION='${{ steps.compute.outputs.new_version }}'
+          git config user.name 'ci-bump'
+          git config user.email 'ci-bump@users.noreply.github.com'
+          git add pubspec.yaml
+          git commit -m "chore: bump version to $NEW_VERSION" || echo 'No changes to commit'
+          git push origin HEAD:${GITHUB_REF_NAME}
+
+      - name: Summary
+        run: |
+          echo "### Bump Result" >> $GITHUB_STEP_SUMMARY
+          echo "Mode: ${{ inputs.mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "New Version: ${{ steps.compute.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY

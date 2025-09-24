@@ -1,0 +1,101 @@
+name: Upload IPA to TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag containing the IPA asset
+        required: true
+      asset_name:
+        description: IPA filename in the release (exact match)
+        required: true
+      itc_provider:
+        description: Optional ITC provider short name if multiple providers exist
+        required: false
+        default: ""
+
+jobs:
+  upload:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Secret presence summary
+        run: |
+          set -euo pipefail
+          present() { printf '%s: %s\n' "$1" "${2:+YES}"; }
+          present APPSTORE_KEY_ID "${{ secrets.APPSTORE_KEY_ID }}"
+          present APPSTORE_ISSUER_ID "${{ secrets.APPSTORE_ISSUER_ID }}"
+          if [[ "${{ secrets.APPSTORE_PRIVATE_KEY }}" == *"BEGIN PRIVATE KEY"* ]]; then echo "APPSTORE_PRIVATE_KEY: YES"; else echo "APPSTORE_PRIVATE_KEY: MISSING/FORMAT"; fi
+          # Do NOT echo any actual secret values
+
+      - name: Select Xcode 16.4
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.4'
+
+      - name: Accept Xcode license & show tool versions
+        run: |
+          set -euo pipefail
+          sudo xcodebuild -license accept
+          xcodebuild -version
+          xcrun --version || true
+          xcrun -f iTMSTransporter || true
+          xcrun iTMSTransporter -version || true
+
+      - name: Download IPA asset from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download "${{ inputs.release_tag }}" -p "${{ inputs.asset_name }}" -O "${{ inputs.asset_name }}"
+          ls -lh "${{ inputs.asset_name }}"
+
+      - name: Verify IPA signature (Distribution)
+        run: |
+          set -euo pipefail
+          IPA='${{ inputs.asset_name }}'
+          unzip -q "$IPA" -d ipa_check
+          APP=$(find ipa_check/Payload -maxdepth 1 -type d -name '*.app' | head -n1)
+          if [[ -z "$APP" ]]; then echo 'No .app inside IPA' 1>&2; exit 1; fi
+          CODESIGN_INFO=$(codesign -dvv "$APP" 2>&1 || true)
+          echo "$CODESIGN_INFO" | grep -E 'Authority=Apple Distribution' >/dev/null || { echo 'IPA not signed with Apple Distribution certificate (expected for TestFlight). Aborting.' 1>&2; exit 1; }
+          echo 'Distribution signature confirmed.'
+
+      - name: Prepare API key
+        id: apikey
+        run: |
+          set -euo pipefail
+          KEY='${{ secrets.APPSTORE_PRIVATE_KEY }}'
+          KEY_ID='${{ secrets.APPSTORE_KEY_ID }}'
+          ISSUER='${{ secrets.APPSTORE_ISSUER_ID }}'
+          if [[ ${#KEY} -gt 50 && "$KEY" == *"BEGIN PRIVATE KEY"* && -n "$KEY_ID" && -n "$ISSUER" ]]; then
+            mkdir -p ~/.appstoreconnect/private_keys
+            echo "$KEY" > ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
+            echo "present=true" >> $GITHUB_OUTPUT
+            echo "Using API key $KEY_ID"
+          else
+            echo "present=false" >> $GITHUB_OUTPUT
+            echo "API key secrets not complete/valid." 1>&2
+          fi
+
+      - name: Upload via API key (iTMSTransporter)
+        if: steps.apikey.outputs.present == 'true'
+        env:
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          ARGS=( -m upload -assetFile "${{ inputs.asset_name }}" -apiKey "$KEY_ID" -apiIssuer "$ISSUER" -v informational )
+          if [[ -n "${{ inputs.itc_provider }}" ]]; then ARGS+=( -itc_provider "${{ inputs.itc_provider }}" ); fi
+          echo "Running: xcrun iTMSTransporter ${ARGS[*]}"
+          xcrun iTMSTransporter "${ARGS[@]}"
+          echo "UPLOAD_DONE=true" >> $GITHUB_ENV
+
+      - name: Fail if no upload
+        run: |
+          if [[ "${UPLOAD_DONE:-}" != "true" ]]; then
+            echo "Upload did not occur. Ensure APPSTORE_PRIVATE_KEY / APPSTORE_KEY_ID / APPSTORE_ISSUER_ID secrets are set correctly." 1>&2
+            exit 1
+          fi

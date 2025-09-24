@@ -85,10 +85,12 @@ class ResultsService {
       final ra = _norm(r.awayTeam);
 
       int score = 0;
-      if (rh == nh) score += 2;
-      else if (rh.contains(nh) || nh.contains(rh)) score += 1;
-      if (ra == na) score += 2;
-      else if (ra.contains(na) || na.contains(ra)) score += 1;
+      if (rh == nh) {
+        score += 2;
+      } else if (rh.contains(nh) || nh.contains(rh)) score += 1;
+      if (ra == na) {
+        score += 2;
+      } else if (ra.contains(na) || na.contains(ra)) score += 1;
 
       // small time proximity bonus (within 3h)
       final dtDiff = (r.utcTime.difference(dt)).inMinutes.abs();

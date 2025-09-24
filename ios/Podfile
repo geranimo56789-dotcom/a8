@@ -1,5 +1,8 @@
 platform :ios, '14.0'
 
+# Enable modular headers globally so static Swift pods can import ObjC deps as modules
+use_modular_headers!
+
 # Disable CocoaPods analytics.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 

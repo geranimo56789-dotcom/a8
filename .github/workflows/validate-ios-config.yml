@@ -1,0 +1,83 @@
+name: Validate iOS CI Config
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional release tag to inspect for IPA integrity
+        required: false
+      asset_name:
+        description: Specific IPA asset name (optional)
+        required: false
+
+jobs:
+  validate:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required secrets presence
+        run: |
+          set -euo pipefail
+          missing=()
+          # Using indirection is not directly supported; manual checks:
+          [[ -z "${{ secrets.APPSTORE_KEY_ID }}" ]] && missing+=(APPSTORE_KEY_ID)
+          [[ -z "${{ secrets.APPSTORE_ISSUER_ID }}" ]] && missing+=(APPSTORE_ISSUER_ID)
+          [[ -z "${{ secrets.APPSTORE_PRIVATE_KEY }}" ]] && missing+=(APPSTORE_PRIVATE_KEY)
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "Missing required secrets: ${missing[*]}" 1>&2
+            exit 1
+          fi
+          echo "Core API key secrets present."
+          # Optional signing secrets
+          opt_missing=()
+          [[ -z "${{ secrets.IOS_DIST_CERT_B64 }}" ]] && opt_missing+=(IOS_DIST_CERT_B64)
+          [[ -z "${{ secrets.IOS_PROVISION_PROFILE_B64 }}" ]] && opt_missing+=(IOS_PROVISION_PROFILE_B64)
+          [[ -z "${{ secrets.IOS_DIST_CERT_PASSWORD }}" ]] && opt_missing+=(IOS_DIST_CERT_PASSWORD)
+          if [[ ${#opt_missing[@]} -gt 0 ]]; then
+            echo "Note: optional signing secrets missing (tag build workflow will fail): ${opt_missing[*]}"
+          fi
+
+      - name: Optionally download release IPA
+        if: ${{ inputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='${{ inputs.release_tag }}'
+          echo "Inspecting release $TAG"
+          if [[ -n '${{ inputs.asset_name }}' ]]; then
+            gh release download "$TAG" -p '${{ inputs.asset_name }}' -O '${{ inputs.asset_name }}'
+            IPA='${{ inputs.asset_name }}'
+          else
+            gh release download "$TAG" -p '*.ipa' || true
+            IPA=$(ls -1 *.ipa 2>/dev/null | head -n1 || true)
+          fi
+          if [[ -z "$IPA" ]]; then
+            echo "No IPA found for release $TAG" 1>&2
+            exit 1
+          fi
+          echo "Found IPA: $IPA"
+          unzip -q "$IPA" -d ipa_unzipped
+          PLIST=$(find ipa_unzipped/Payload -maxdepth 2 -name Info.plist | head -n1)
+          if [[ -z "$PLIST" ]]; then echo 'Info.plist not located in IPA' 1>&2; exit 1; fi
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")
+          SHORT_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")
+          BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")
+          echo "Bundle: $BUNDLE_ID Version: $SHORT_VERSION ($BUILD_NUMBER)"
+          echo "bundle_id=$BUNDLE_ID" >> $GITHUB_OUTPUT
+          echo "short_version=$SHORT_VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Summary
+        run: |
+          {
+            echo "### iOS CI Validation";
+            if [[ -n '${{ inputs.release_tag }}' ]]; then
+              echo "Release Tag: ${{ inputs.release_tag }}";
+            else
+              echo "Release Tag: (none inspected)";
+            fi
+            echo "Core secrets: present";
+          } >> $GITHUB_STEP_SUMMARY

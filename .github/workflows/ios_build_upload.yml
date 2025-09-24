@@ -1,0 +1,168 @@
+name: iOS Build & Upload (App Store Connect)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-type:
+        description: 'Specify: testflight or appstore'
+        required: false
+        default: 'testflight'
+  push:
+    tags:
+      - 'ios-v*'
+
+jobs:
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-14
+    env:
+      FLUTTER_VERSION: 'stable'
+      APP_BUNDLE_ID: 'nodomain.var6'
+      TEAM_ID: 'K68A6FQABT'
+      # FASTLANE_SESSION not used because we rely on API key
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Flutter pub
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            build
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Run Flutter tests
+        run: flutter test --reporter compact
+
+      - name: Extract app version
+        id: version
+        run: |
+          VER_LINE=$(grep '^version:' pubspec.yaml | head -n1 | awk '{print $2}')
+          APP_VERSION=${VER_LINE%%+*}
+          BUILD_NUMBER=${VER_LINE##*+}
+          echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Show versions
+        run: echo "Version ${{ steps.version.outputs.app_version }} build ${{ steps.version.outputs.build_number }}"
+
+      - name: Flutter build ios (IPA)
+        run: |
+          flutter build ipa \
+            --release \
+            --no-codesign \
+            --build-name ${{ steps.version.outputs.app_version }} \
+            --build-number ${{ steps.version.outputs.build_number }}
+
+      - name: Prepare signing assets
+        if: always()
+        run: |
+          mkdir -p signing
+          # Decode base64 secrets into files (works on macOS; -d flag decodes)
+          printf '%s' "$P12_BASE64" | base64 -d > signing/dist_cert.p12
+          printf '%s' "$MOBILEPROVISION_BASE64" | base64 -d > signing/app.mobileprovision
+        env:
+          P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
+          MOBILEPROVISION_BASE64: ${{ secrets.IOS_MOBILEPROVISION_BASE64 }}
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Install dependencies (fastlane, cert util)
+        run: |
+          sudo gem install fastlane -N
+
+      - name: Create keychain and import cert
+        run: |
+          KEYCHAIN=build.keychain
+          security create-keychain -p "temp_pass" $KEYCHAIN
+          security set-keychain-settings -lut 21600 $KEYCHAIN
+          security unlock-keychain -p "temp_pass" $KEYCHAIN
+          security import signing/dist_cert.p12 -k $KEYCHAIN -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security list-keychains -d user -s $KEYCHAIN $(security list-keychains -d user | sed 's/\"//g')
+          security set-key-partition-list -S apple-tool:,apple: -s -k "temp_pass" $KEYCHAIN
+        env:
+          P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+
+      - name: Move provisioning profile
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          UUID=$(grep -a -A1 '<key>UUID</key>' signing/app.mobileprovision | tail -n1 | tr -d ' \t\r\n' | sed -e 's/<string>//' -e 's/<\/string>//')
+          cp signing/app.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+
+      - name: Build signed archive via xcodebuild
+        run: |
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release -archivePath ../build/Runner.xcarchive DEVELOPMENT_TEAM=$TEAM_ID PRODUCT_BUNDLE_IDENTIFIER=$APP_BUNDLE_ID clean archive CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER="" CODE_SIGN_IDENTITY="Apple Distribution"
+          xcodebuild -exportArchive -archivePath ../build/Runner.xcarchive -exportOptionsPlist exportOptions.plist -exportPath ../build/export
+
+      - name: Write App Store Connect API key JSON
+        run: |
+          # If you stored a base64 of the API key JSON, decode it; else write raw
+          if [ -n "$API_KEY_JSON_BASE64" ]; then
+            printf '%s' "$API_KEY_JSON_BASE64" | base64 -d > ios/AuthKey.json
+          else
+            echo "$API_KEY_JSON" > ios/AuthKey.json
+          fi
+        env:
+          API_KEY_JSON: ${{ secrets.APP_STORE_CONNECT_API_KEY_JSON }}
+          API_KEY_JSON_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_JSON_BASE64 }}
+
+      - name: Upload to TestFlight
+        if: inputs.release-type == 'testflight'
+        run: |
+          fastlane pilot upload --api_key_path AuthKey.json --ipa ../build/export/Runner.ipa --skip_submission true --skip_waiting_for_build_processing true
+        working-directory: ios
+        env:
+          FASTLANE_DISABLE_COLORS: 1
+
+      - name: Upload to App Store (Production)
+        if: inputs.release-type == 'appstore'
+        run: |
+          fastlane pilot upload --api_key_path AuthKey.json --ipa ../build/export/Runner.ipa --skip_waiting_for_build_processing false
+        working-directory: ios
+
+      - name: Notarize artifact (placeholder)
+        if: false
+        run: echo "Notarization step not required for iOS App Store uploads"
+
+      - name: Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-output
+          path: build/export/*.ipa
+
+      - name: Upload dSYMs (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-dsyms
+          path: build/Runner.xcarchive/dSYMs
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain build.keychain || true
+
+  # NOTE: You must add the following secrets in repository settings:
+  # IOS_P12_BASE64 - base64 of distribution .p12
+  # IOS_P12_PASSWORD - password for the p12
+  # IOS_MOBILEPROVISION_BASE64 - base64 of provisioning profile (.mobileprovision)
+  # APP_STORE_CONNECT_API_KEY_JSON - JSON object for API key (format from fastlane spaceauth / manual construction)
+  # (OR) APP_STORE_CONNECT_API_KEY_JSON_BASE64 - base64 encoded JSON to avoid newline issues
+  # APP_STORE_CONNECT_API_ISSUER_ID - Issuer ID from App Store Connect
+  # Optionally: SLACK_WEBHOOK

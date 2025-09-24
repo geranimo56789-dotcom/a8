@@ -2939,7 +2939,7 @@ class _TeamsGalleryScreenState extends State<TeamsGalleryScreen> {
 }
 
 class _CountriesFlagsGrid extends StatelessWidget {
-  _CountriesFlagsGrid();
+  const _CountriesFlagsGrid();
 
   // ISO 3166-1 alpha2 for European countries commonly in UEFA competitions
   final List<Map<String, String>> countries = const [

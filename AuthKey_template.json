@@ -1,0 +1,5 @@
+﻿{
+  \"key_id\": \"CHANGE_KEY_ID\",
+  \"issuer_id\": \"CHANGE_ISSUER_ID\",
+  \"key\": \"-----BEGIN PRIVATE KEY-----\\nMIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQglTO0w0eo55q28VX4\\nBv9Levt9e5c7gy9FwADacdHjWyOgCgYIKoZIzj0DAQehRANCAATmXxNVmLZtDWuX\\n/k/w5Fg+oqU9FxsSjzeFLKt0/vsrW8n74hdECkNxRTurKKhCl0Hp1UwmRjrFwe3z\\nH1MvKkc+\\n-----END PRIVATE KEY-----\"
+}
